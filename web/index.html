@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VOIDBLOOM</title>
+<meta name="description" content="VOIDBLOOM — a neon survivors-like. Solo or co-op, 5 ships, 3 arenas, 11 evolving weapons.">
+<link rel="icon" href="favicon.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="flash-red"></div>
+<div id="announce"></div>
+<div id="tip"></div>
+<div id="touch-pause">&#10074;&#10074;</div>
+
+<!-- TITLE -->
+<div class="overlay" id="title">
+  <h1 class="logo">VOIDBLOOM</h1>
+  <div class="tagline">survive the swarm &nbsp;&middot;&nbsp; bloom the void</div>
+  <div class="char-row" id="char-row"></div>
+  <div id="coop-hint" class="tagline" style="margin:8px 0 0; display:none; letter-spacing:.18em"></div>
+  <div style="margin:10px 0 2px">
+    <span class="btn" id="btn-hangar" style="font-size:14px; padding:9px 22px">THE HANGAR &nbsp;<span id="title-shards" style="color:var(--violet)">◆ 0</span></span>
+  </div>
+  <div class="arena-row" id="mode-row"></div>
+  <div class="arena-row" id="arena-row" style="margin-top:6px"></div>
+  <div class="hint">
+    <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> or arrows to move
+    &nbsp;&middot;&nbsp; weapons fire on their own &nbsp;&middot;&nbsp;
+    <span class="kbd">Esc</span> pause &nbsp;&middot;&nbsp; <span class="kbd">M</span> mute
+    <br>Survive 15 minutes. Kill what waits at the end.
+  </div>
+</div>
+
+<!-- LEVEL UP -->
+<div class="overlay" id="levelup">
+  <div class="panel">
+    <div class="lvl-title">LEVEL UP</div>
+    <div class="lvl-sub" id="lvl-sub">CHOOSE AN UPGRADE</div>
+    <div class="card-row" id="card-row"></div>
+    <div class="banish-note" id="banish-note">SELECT AN UPGRADE TO BANISH FROM THIS RUN</div>
+    <div class="lvl-btns">
+      <div class="btn" id="btn-reroll">REROLL <span id="reroll-n"></span> <span class="kbd">R</span></div>
+      <div class="btn warn" id="btn-banish">BANISH <span id="banish-n"></span> <span class="kbd">B</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- HANGAR -->
+<div class="overlay" id="hangar">
+  <div class="panel">
+    <div class="lvl-title" style="color:var(--violet); text-shadow:0 0 18px rgba(176,107,255,.5)">THE HANGAR</div>
+    <div class="lvl-sub">permanent upgrades &middot; earned with void shards</div>
+    <div class="shard-chip" id="hangar-shards">◆ 0</div>
+    <div class="hg-grid" id="hg-grid"></div>
+    <div class="lvl-sub" style="margin-top:16px">ACHIEVEMENTS</div>
+    <div class="hg-grid" id="ach-grid"></div>
+    <div class="tagline" id="hg-stats" style="margin-top:12px; letter-spacing:.12em"></div>
+    <div class="btn big" id="btn-hangar-back">BACK</div>
+  </div>
+</div>
+
+<!-- PAUSE -->
+<div class="overlay" id="pause">
+  <div class="panel">
+    <div class="lvl-title" style="color:var(--cyan); text-shadow:0 0 18px rgba(78,243,255,.5)">PAUSED</div>
+    <div id="pause-build" class="build-recap"></div>
+    <div id="pause-stats" class="stat-grid"></div>
+    <div class="vol-row"><label>Master</label><input type="range" id="vol-master" min="0" max="100"></div>
+    <div class="vol-row"><label>Music</label><input type="range" id="vol-music" min="0" max="100"></div>
+    <div class="vol-row"><label>SFX</label><input type="range" id="vol-sfx" min="0" max="100"></div>
+    <div style="margin-top:14px">
+      <div class="btn big" id="btn-resume">RESUME</div>
+      <div class="btn warn" id="btn-abandon">ABANDON RUN</div>
+    </div>
+  </div>
+</div>
+
+<!-- GAME OVER -->
+<div class="overlay" id="gameover">
+  <div class="panel">
+    <div class="death-title">SHIP LOST</div>
+    <div class="tagline" style="margin-top:6px">the void takes another</div>
+    <div id="death-build" class="build-recap"></div>
+    <div id="death-stats" class="stat-grid"></div>
+    <div>
+      <div class="btn big" id="btn-retry">FLY AGAIN</div>
+      <div class="btn" id="btn-title1">TITLE</div>
+    </div>
+  </div>
+</div>
+
+<!-- VICTORY -->
+<div class="overlay" id="victory">
+  <div class="panel">
+    <div class="win-title">THE VOID BLOOMS</div>
+    <div class="tagline" style="margin-top:6px">you outlived the garden itself</div>
+    <div id="win-build" class="build-recap"></div>
+    <div id="win-stats" class="stat-grid"></div>
+    <div>
+      <div class="btn big" id="btn-endless">ENDLESS MODE</div>
+      <div class="btn" id="btn-title2">TITLE</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer-note">VOIDBLOOM — made by Claude</div>
+
+<script src="js/util.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/data.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
