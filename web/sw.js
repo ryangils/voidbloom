@@ -1,6 +1,6 @@
 // VOIDBLOOM service worker: caches the game so it plays offline once installed.
 // Bump VERSION whenever you ship changes so players get the update.
-const VERSION = 'voidbloom-v3';
+const VERSION = 'voidbloom-v4';
 const FILES = [
   './', 'index.html', 'css/style.css', 'favicon.svg', 'manifest.webmanifest',
   'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png',

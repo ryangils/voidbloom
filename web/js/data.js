@@ -201,6 +201,9 @@ const BOONS = {
 // ---------------------------------------------------------------------------
 // HANGAR — permanent upgrades bought with Void Shards (persist across runs)
 // ---------------------------------------------------------------------------
+// Multiplies every Void Shard price (Hangar upgrades + ship unlocks). Raise to make progression slower.
+const SHARD_COST_MULT = 3;
+
 const HANGAR = [
   { id: 'hull',   name: 'Reinforced Hull',  icon: 'p_plating',   ranks: 5, base: 15, per: '+10 max HP' },
   { id: 'damage', name: 'Weapons Lab',      icon: 'p_amp',       ranks: 5, base: 20, per: '+4% damage' },
@@ -214,7 +217,7 @@ const HANGAR = [
   { id: 'banish', name: 'Void Censor',      icon: 'h_banish',    ranks: 2, base: 25, per: '+1 banish per run' },
   { id: 'wind',   name: 'Phoenix Protocol', icon: 'p_wind',      ranks: 1, base: 75, per: 'auto-revive once per run' },
 ];
-function hangarCost(item, rank) { return item.base * (rank + 1); }
+function hangarCost(item, rank) { return item.base * (rank + 1) * SHARD_COST_MULT; }
 
 // ---------------------------------------------------------------------------
 // ENEMIES
@@ -414,13 +417,13 @@ const CHARS = [
   },
   {
     id: 3, name: 'REVENANT', ship: 'ship3', color: '#ff5e9e', weapon: 'scythe',
-    sub: 'void reaper', cost: 120,
+    sub: 'void reaper', cost: 120 * SHARD_COST_MULT,
     desc: 'Starts with the Void Scythe. Innate 0.8% lifesteal — but a thin hull (-25 HP).',
     mods: { hp: -25, siphon: 0.008 },
   },
   {
     id: 4, name: 'WRAITH', ship: 'ship4', color: '#9feaff', weapon: 'rail',
-    sub: 'glass phantom', cost: 150,
+    sub: 'glass phantom', cost: 150 * SHARD_COST_MULT,
     desc: 'Starts with the Rail Lance. +40% damage and +10% speed. 55 hull. Do not get hit.',
     mods: { hp: -45, dmg: 0.4, speed: 1.1 },
   },
