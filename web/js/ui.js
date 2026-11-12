@@ -757,15 +757,28 @@ const UI = {
     }
 
     // --- touch joystick ---
-    const tj = Input.touch;
-    if (tj && tj.active) {
+    const jcol = i => (G.coop && G.players[i]) ? CHARS[G.players[i].charId].color : '#9feaff';
+    [[Input.touch, jcol(0)], [Input.touch2, jcol(1)]].forEach(([tj, col]) => {
+      if (!tj || !tj.active) return;
       ctx.globalAlpha = 0.35;
-      ctx.strokeStyle = '#9feaff';
+      ctx.strokeStyle = col;
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(tj.ox, tj.oy, 52, 0, TAU); ctx.stroke();
       ctx.globalAlpha = 0.55;
-      ctx.fillStyle = '#9feaff';
+      ctx.fillStyle = col;
       ctx.beginPath(); ctx.arc(tj.x, tj.y, 20, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+    // co-op on a touch screen: faint split line + side labels so each player knows their half
+    if (G.coop && IS_TOUCH && G.state === 'run') {
+      ctx.globalAlpha = 0.12;
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.setLineDash([6, 10]);
+      ctx.beginPath(); ctx.moveTo(w / 2, 80); ctx.lineTo(w / 2, h - 24); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 0.35;
+      ctx.font = 'bold 12px Segoe UI'; ctx.textAlign = 'center';
+      ctx.fillStyle = jcol(0); ctx.fillText('P1', w / 4, h - 30);
+      ctx.fillStyle = jcol(1); ctx.fillText('P2', w * 3 / 4, h - 30);
       ctx.globalAlpha = 1;
     }
 

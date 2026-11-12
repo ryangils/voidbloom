@@ -129,7 +129,9 @@ const App = {
       this.persist();
       UI.tip((IS_TOUCH ? '<b>Drag anywhere</b> to fly' : 'Move with <b>WASD</b>') + ' — your weapons fire on their own.<br>Collect the crystals. Survive.', 6);
     }
-    if (G.coop) UI.tip('P1: <b>WASD</b> / pad 1 &nbsp;·&nbsp; P2: <b>arrows</b> / pad 2<br>Downed pilots revive on a timer — or instantly on level up.', 7);
+    if (G.coop) UI.tip((IS_TOUCH
+      ? 'P1: drag on the <b>left half</b> &nbsp;·&nbsp; P2: drag on the <b>right half</b>'
+      : 'P1: <b>WASD</b> / pad 1 &nbsp;·&nbsp; P2: <b>arrows</b> / pad 2') + '<br>Downed pilots revive on a timer — or instantly on level up.', 7);
   },
 
   startEndless() {
@@ -180,7 +182,8 @@ const App = {
 // ---------------------------------------------------------------------------
 const Input = {
   keys: new Set(),
-  touch: { active: false, id: -1, ox: 0, oy: 0, x: 0, y: 0 },
+  touch: { active: false, id: -1, ox: 0, oy: 0, x: 0, y: 0 },    // P1 (or the only pilot in solo)
+  touch2: { active: false, id: -1, ox: 0, oy: 0, x: 0, y: 0 },   // P2 in co-op: right half of the screen
   gpPrev: [],          // previous gamepad button states (edge detection)
   gpAxisPrev: 0,
 
@@ -188,24 +191,29 @@ const Input = {
     // ---- touch joystick ----
     const cv = document.getElementById('game');
     cv.style.touchAction = 'none';
+    // Solo: one joystick anywhere. Co-op: left half = P1, right half = P2 (two thumbs, one phone).
     cv.addEventListener('pointerdown', e => {
-      if (e.pointerType !== 'touch' || this.touch.active) return;
+      if (e.pointerType !== 'touch') return;
       const r = cv.getBoundingClientRect();   // canvas may be inset for the notch
-      this.touch.active = true; this.touch.id = e.pointerId;
-      this.touch.rx = r.left; this.touch.ry = r.top;
-      this.touch.ox = this.touch.x = e.clientX - r.left;
-      this.touch.oy = this.touch.y = e.clientY - r.top;
+      const lx = e.clientX - r.left, ly = e.clientY - r.top;
+      const t = (G.coop && lx > r.width / 2) ? this.touch2 : this.touch;
+      if (t.active) return;
+      t.active = true; t.id = e.pointerId;
+      t.rx = r.left; t.ry = r.top;
+      t.ox = t.x = lx; t.oy = t.y = ly;
     });
     window.addEventListener('pointermove', e => {
-      if (!this.touch.active || e.pointerId !== this.touch.id) return;
-      const dx = e.clientX - this.touch.rx - this.touch.ox, dy = e.clientY - this.touch.ry - this.touch.oy;
+      const t = e.pointerId === this.touch.id ? this.touch : e.pointerId === this.touch2.id ? this.touch2 : null;
+      if (!t || !t.active) return;
+      const dx = e.clientX - t.rx - t.ox, dy = e.clientY - t.ry - t.oy;
       const d = Math.hypot(dx, dy), max = 52;
       const cl = d > max ? max / d : 1;
-      this.touch.x = this.touch.ox + dx * cl;
-      this.touch.y = this.touch.oy + dy * cl;
+      t.x = t.ox + dx * cl;
+      t.y = t.oy + dy * cl;
     });
     const endTouch = e => {
-      if (e.pointerId === this.touch.id) { this.touch.active = false; this.touch.id = -1; }
+      for (const t of [this.touch, this.touch2])
+        if (e.pointerId === t.id) { t.active = false; t.id = -1; }
     };
     window.addEventListener('pointerup', endTouch);
     window.addEventListener('pointercancel', endTouch);
@@ -336,7 +344,10 @@ const Input = {
     let x2 = 0, y2 = 0;
     if (k.has('arrowleft')) x2 -= 1; if (k.has('arrowright')) x2 += 1;
     if (k.has('arrowup')) y2 -= 1; if (k.has('arrowdown')) y2 += 1;
-    if (!x2 && !y2 && pads[1]) { x2 = pads[1].x; y2 = pads[1].y; }
+    if (this.touch2.active) {
+      x2 = (this.touch2.x - this.touch2.ox) / 40;
+      y2 = (this.touch2.y - this.touch2.oy) / 40;
+    } else if (!x2 && !y2 && pads[1]) { x2 = pads[1].x; y2 = pads[1].y; }
     p2.x = x2; p2.y = y2;
   },
 };
