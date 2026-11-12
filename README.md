@@ -6,6 +6,7 @@ A neon survivors-like for the browser and desktop. Pick a ship, drop into an are
 
 **▶ Play in your browser:** https://ryangils.github.io/voidbloom/
 **⬇ Windows download:** see [Releases](https://github.com/ryangils/voidbloom/releases)
+**📱 iPhone / iPad:** open the link above in Safari → Share → **Add to Home Screen** for a full-screen app that also works offline
 
 ## Features
 
@@ -14,6 +15,7 @@ A neon survivors-like for the browser and desktop. Pick a ship, drop into an are
 - **3 arenas** — The Drift, Reactor Core, Void Garden — and a Nightmare mode
 - **11 evolving weapons**, achievements, and permanent upgrades in **the Hangar**
 - **Zero assets** — every sprite is drawn in code and every sound is synthesized live
+- Plays on iPhone/iPad and Android: touch joystick, notch-safe layout, installable to the home screen, offline play
 - Progress is saved locally (browser storage / desktop app storage)
 
 ## Controls
@@ -24,6 +26,7 @@ A neon survivors-like for the browser and desktop. Pick a ship, drop into an are
 | Pause | `Esc` |
 | Mute | `M` |
 | Fullscreen (desktop app) | `F11` |
+| Touch (phone/tablet) | drag anywhere to fly · ❚❚ button to pause |
 
 ## Project layout
 
@@ -38,6 +41,7 @@ web/                 the game itself (plain HTML/CSS/JS, no build step)
   js/game.js         core simulation + world rendering
   js/ui.js           overlays, HUD, procedural icons
   js/main.js         boot, input, game loop, saves
+  sw.js, manifest.webmanifest, icons/   home-screen install + offline play
 electron/main.js     desktop app shell
 build/icon.png       app icon
 .github/workflows/   auto-deploy to GitHub Pages + Windows builds
@@ -61,3 +65,4 @@ You can also just open `web/index.html` directly in a browser.
 3. GitHub Actions builds `VOIDBLOOM-Setup-x.y.z.exe` and `VOIDBLOOM-Portable-x.y.z.exe` and attaches them to a new Release.
 
 Every push to `main` that touches `web/` redeploys the browser version automatically.
+When you change game files, also bump `VERSION` in `web/sw.js` so phones that installed the game pick up the update.

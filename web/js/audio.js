@@ -12,7 +12,7 @@ const AudioSys = {
   // Created lazily on first user gesture (browser autoplay policy).
   ensure() {
     if (this.ctx) {
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      if (this.ctx.state !== 'running') this.ctx.resume();   // 'interrupted' on iOS
       return true;
     }
     try {

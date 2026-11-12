@@ -656,7 +656,7 @@ const UI = {
 
     // --- HP bars + build icons, one block per player (top-left) ---
     G.players.forEach((p, pi) => {
-      const hpW = 210, hpH = 13, hx = 16, hy = 16 + pi * 62;
+      const hpW = Math.min(210, Math.max(110, w * 0.3)), hpH = 13, hx = 16, hy = 16 + pi * 62;
       ctx.fillStyle = 'rgba(8,12,28,0.75)';
       ctx.fillRect(hx - 2, hy - 2, hpW + 4, hpH + 4);
       const frac = U.clamp(p.hp / p.maxHp, 0, 1);
@@ -733,9 +733,10 @@ const UI = {
     ctx.textAlign = 'right';
     ctx.font = 'bold 16px Segoe UI';
     ctx.fillStyle = '#ff8adf';
-    ctx.fillText(G.kills.toLocaleString() + ' ✦', w - 18, 24);
+    const rx = w - 18 - (IS_TOUCH ? 56 : 0);   // leave room for the on-screen pause button
+    ctx.fillText(G.kills.toLocaleString() + ' ✦', rx, 24);
     ctx.fillStyle = '#4ef3ff';
-    ctx.fillText('LV ' + G.level, w - 18, 46);
+    ctx.fillText('LV ' + G.level, rx, 46);
 
     // --- boss bar ---
     const b = G.boss;

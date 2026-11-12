@@ -2,6 +2,8 @@
 'use strict';
 
 const TAU = Math.PI * 2;
+// true on phones/tablets (touch is the main input)
+const IS_TOUCH = !!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
 
 const U = {
   rand(a, b) { return a + Math.random() * (b - a); },

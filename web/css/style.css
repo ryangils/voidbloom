@@ -192,3 +192,76 @@
   .footer-note{ position:fixed; bottom:10px; width:100%; text-align:center; font-size:11px;
     color:#3d4763; letter-spacing:.12em; z-index:11; pointer-events:none; }
   .overlay:not(.show) .footer-note{ display:none; }
+
+/* =====================================================================
+   MOBILE / iOS
+   ===================================================================== */
+html,body{ -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
+  -webkit-text-size-adjust:100%; overscroll-behavior:none; }
+/* keep the play field clear of the notch / home indicator */
+#game{ top:env(safe-area-inset-top); bottom:env(safe-area-inset-bottom);
+  left:env(safe-area-inset-left); right:env(safe-area-inset-right);
+  width:calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right)) !important;
+  height:calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  touch-action:none; }
+/* overlays scroll when taller than the screen, and never hide content under the notch */
+.overlay{ justify-content:flex-start; overflow-y:auto; -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain; touch-action:pan-y;
+  padding:max(14px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+          max(14px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
+.overlay > :first-child{ margin-top:auto; }
+.overlay > :last-child{ margin-bottom:auto; }
+.btn, .char-card, .arena-card, .up-card, .hg-item{ touch-action:manipulation; }
+#touch-pause{ top:max(10px, env(safe-area-inset-top)); right:max(10px, env(safe-area-inset-right));
+  visibility:hidden; }
+body.in-run #touch-pause{ visibility:visible; }
+.touch-only{ display:none; }
+
+@media (pointer:coarse){
+  .touch-only{ display:inline; }
+  .desk-only, .kbd, .uc-key{ display:none !important; }
+  /* no sticky hover lift on tap */
+  .btn:hover, .char-card:hover, .up-card:hover{ transform:none; }
+}
+
+/* phones (portrait, or short landscape) */
+@media (max-width:720px), (max-height:500px){
+  h1.logo{ font-size:clamp(34px, 11vw, 56px); letter-spacing:.1em; }
+  .tagline{ letter-spacing:.24em; font-size:10px; margin-bottom:12px; }
+  .panel{ padding:16px 14px; max-width:100%; }
+  #title{ display:flex; }
+  #title .arena-row{ order:1; flex-wrap:wrap; gap:8px; margin:6px 0 2px; }
+  #title #mode-row{ order:1; }
+  #title #arena-row{ order:2; }
+  #title > div:has(#btn-hangar){ order:3; }
+  #title .char-row{ order:4; }
+  #title #coop-hint{ order:5; }
+  #title .hint{ order:6; margin-top:10px; }
+  .arena-card{ padding:8px 12px; flex:1 1 40%; min-width:0; }
+  /* ships become compact rows: icon left, text right */
+  .char-row{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
+    gap:8px; width:100%; max-width:720px; margin:10px 0 4px; }
+  .char-card{ width:auto; display:grid; grid-template-columns:56px 1fr; column-gap:10px;
+    align-items:center; text-align:left; padding:10px 12px; }
+  .char-card canvas{ grid-row:1 / span 4; width:56px; height:56px; margin:0; }
+  .char-desc{ min-height:0; font-size:11.5px; line-height:1.4; }
+  .char-sub{ margin:1px 0 3px; }
+  .char-best{ margin-top:4px; padding-top:4px; }
+  /* level-up: 3 cards stacked full-width */
+  .lvl-sub{ margin-bottom:10px; }
+  .card-row{ flex-direction:column; align-items:stretch; gap:8px; }
+  .up-card{ width:auto; display:grid; grid-template-columns:auto 1fr; column-gap:12px; padding:10px 12px; }
+  .up-card canvas{ grid-row:1 / span 5; margin:0; align-self:center; }
+  .hg-grid{ grid-template-columns:1fr; }
+  .btn{ padding:11px 20px; font-size:15px; }
+  .btn.big{ font-size:18px; padding:13px 32px; }
+  .footer-note{ display:none; }
+}
+/* landscape phones: show ships two-up / three-up */
+@media (max-height:500px) and (min-width:600px){
+  .char-row{ grid-template-columns:repeat(3, 1fr); }
+  .char-desc{ display:none; }
+  .card-row{ flex-direction:row; }
+  .up-card{ flex:1 1 0; display:block; }
+  .up-card canvas{ margin-bottom:6px; }
+}

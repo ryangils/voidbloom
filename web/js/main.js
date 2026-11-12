@@ -127,7 +127,7 @@ const App = {
     if (!this.save.seenTip) {
       this.save.seenTip = true;
       this.persist();
-      UI.tip('Move with <b>WASD</b> — your weapons fire on their own.<br>Collect the crystals. Survive.', 6);
+      UI.tip((IS_TOUCH ? '<b>Drag anywhere</b> to fly' : 'Move with <b>WASD</b>') + ' — your weapons fire on their own.<br>Collect the crystals. Survive.', 6);
     }
     if (G.coop) UI.tip('P1: <b>WASD</b> / pad 1 &nbsp;·&nbsp; P2: <b>arrows</b> / pad 2<br>Downed pilots revive on a timer — or instantly on level up.', 7);
   },
@@ -190,13 +190,15 @@ const Input = {
     cv.style.touchAction = 'none';
     cv.addEventListener('pointerdown', e => {
       if (e.pointerType !== 'touch' || this.touch.active) return;
+      const r = cv.getBoundingClientRect();   // canvas may be inset for the notch
       this.touch.active = true; this.touch.id = e.pointerId;
-      this.touch.ox = this.touch.x = e.clientX;
-      this.touch.oy = this.touch.y = e.clientY;
+      this.touch.rx = r.left; this.touch.ry = r.top;
+      this.touch.ox = this.touch.x = e.clientX - r.left;
+      this.touch.oy = this.touch.y = e.clientY - r.top;
     });
     window.addEventListener('pointermove', e => {
       if (!this.touch.active || e.pointerId !== this.touch.id) return;
-      const dx = e.clientX - this.touch.ox, dy = e.clientY - this.touch.oy;
+      const dx = e.clientX - this.touch.rx - this.touch.ox, dy = e.clientY - this.touch.ry - this.touch.oy;
       const d = Math.hypot(dx, dy), max = 52;
       const cl = d > max ? max / d : 1;
       this.touch.x = this.touch.ox + dx * cl;
@@ -280,13 +282,21 @@ const Input = {
     });
     window.addEventListener('keyup', e => this.keys.delete(e.key.toLowerCase()));
     window.addEventListener('blur', () => this.keys.clear());
-    window.addEventListener('pointerdown', () => {
+    // iOS Safari only unlocks Web Audio inside touchend/click, not pointerdown
+    const unlock = () => {
       AudioSys.ensure();
       if (G.state === 'title' && !AudioSys.music.on) AudioSys.startMusic('menu');
-    });
+    };
+    ['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev =>
+      window.addEventListener(ev, unlock, { passive: true }));
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && G.state === 'run') App.pause();
+      if (!document.hidden && AudioSys.ctx && AudioSys.ctx.state !== 'running') AudioSys.ctx.resume();
     });
+    // block pinch-zoom and double-tap zoom on iOS
+    ['gesturestart', 'gesturechange'].forEach(ev =>
+      document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
+    // (double-tap zoom is already disabled by touch-action:manipulation + the viewport tag)
     document.getElementById('game').addEventListener('contextmenu', e => e.preventDefault());
   },
   poll() {
@@ -340,13 +350,15 @@ let viewW = 0, viewH = 0, dpr = 1;
 
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, 1.75);
-  viewW = window.innerWidth; viewH = window.innerHeight;
+  // the canvas is inset by CSS safe-area padding on notched phones
+  const r = canvas.getBoundingClientRect();
+  viewW = Math.round(r.width) || window.innerWidth; viewH = Math.round(r.height) || window.innerHeight;
   canvas.width = Math.round(viewW * dpr);
   canvas.height = Math.round(viewH * dpr);
-  canvas.style.width = viewW + 'px';
-  canvas.style.height = viewH + 'px';
+  // CSS sizes the canvas (full screen minus notch insets); we only set its pixel buffer
 }
 window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 250));
 
 let lastT = performance.now(), acc = 0;
 const STEP = 1 / 60;
@@ -356,6 +368,7 @@ function frame(now) {
   lastT = now;
   acc += dt;
   Input.poll();
+  document.body.classList.toggle('in-run', G.state === 'run' || G.state === 'pause');
   let n = 0;
   while (acc >= STEP && n < 5) {
     for (let i = 0; i < App.debugSpeed; i++) G.step(STEP);
