@@ -267,3 +267,7 @@ body.in-run #touch-pause{ visibility:visible; }
 }
 
 body.in-run .footer-note{ display:none; }
+
+/* Quit buttons only make sense in the desktop app (a browser tab can't close itself) */
+.desk-app-only{ display:none !important; }
+body.is-desktop-app .desk-app-only{ display:inline-block !important; }

@@ -21,6 +21,10 @@ const UI = {
     this.buildCharCards();
 
     $('btn-resume').onclick = () => { AudioSys.play('ui'); App.resume(); };
+    // desktop app only: close the game window (progress is saved first)
+    const quit = () => { try { App.persist(); } catch (e) { /* still quit */ } window.close(); };
+    $('btn-quit').onclick = quit;
+    $('btn-quit-title').onclick = quit;
     $('btn-abandon').onclick = () => { AudioSys.play('uiBack'); App.toTitle(); };
     $('btn-retry').onclick = () => { AudioSys.play('ui'); App.retry(); };
     $('btn-title1').onclick = () => { AudioSys.play('uiBack'); App.toTitle(); };

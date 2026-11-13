@@ -186,6 +186,8 @@ const App = {
 // ---------------------------------------------------------------------------
 // input
 // ---------------------------------------------------------------------------
+if (/Electron/i.test(navigator.userAgent)) document.body.classList.add('is-desktop-app');
+
 const Input = {
   keys: new Set(),
   touch: { active: false, id: -1, ox: 0, oy: 0, x: 0, y: 0 },    // P1 (or the only pilot in solo)
