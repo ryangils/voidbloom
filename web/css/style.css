@@ -265,3 +265,5 @@ body.in-run #touch-pause{ visibility:visible; }
   .up-card{ flex:1 1 0; display:block; }
   .up-card canvas{ margin-bottom:6px; }
 }
+
+body.in-run .footer-note{ display:none; }

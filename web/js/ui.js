@@ -756,6 +756,11 @@ const UI = {
       ctx.strokeRect(bx - 2, by + 6, bw + 4, 12);
     }
 
+    if (G.state === 'run' || G.state === 'pause' || G.state === 'levelup') {
+      BeatSys.renderScreen(G, ctx, w, h);
+      BeatSys.renderHud(G, ctx, w, h);
+    }
+
     // --- touch joystick ---
     const jcol = i => (G.coop && G.players[i]) ? CHARS[G.players[i].charId].color : '#9feaff';
     [[Input.touch, jcol(0)], [Input.touch2, jcol(1)]].forEach(([tj, col]) => {
@@ -773,12 +778,12 @@ const UI = {
     if (G.coop && IS_TOUCH && G.state === 'run') {
       ctx.globalAlpha = 0.12;
       ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.setLineDash([6, 10]);
-      ctx.beginPath(); ctx.moveTo(w / 2, 80); ctx.lineTo(w / 2, h - 24); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w / 2, 80); ctx.lineTo(w / 2, h - 70); ctx.stroke();
       ctx.setLineDash([]);
       ctx.globalAlpha = 0.35;
       ctx.font = 'bold 12px Segoe UI'; ctx.textAlign = 'center';
-      ctx.fillStyle = jcol(0); ctx.fillText('P1', w / 4, h - 30);
-      ctx.fillStyle = jcol(1); ctx.fillText('P2', w * 3 / 4, h - 30);
+      ctx.fillStyle = jcol(0); ctx.fillText('P1', w / 4, h - 58);
+      ctx.fillStyle = jcol(1); ctx.fillText('P2', w * 3 / 4, h - 58);
       ctx.globalAlpha = 1;
     }
 

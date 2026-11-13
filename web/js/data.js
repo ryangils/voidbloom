@@ -336,6 +336,8 @@ const ACHIEVEMENTS = [
   { id: 'untouch',   name: 'Ghost',            shards: 25, desc: 'reach 5:00 untouched',            check: g => g.firstHitAt >= 300 },
   { id: 'coopwin',   name: 'Wingmates',        shards: 30, desc: 'win a co-op run',                 check: (g, won) => won && g.coop },
   { id: 'nightwin',  name: 'Lucid',            shards: 75, desc: 'win a Nightmare run',             check: (g, won) => won && g.nightmare },
+  { id: 'onbeat',    name: 'On Beat',          shards: 20, desc: '50 PERFECT dashes in one run',    check: g => g.perfects >= 50 },
+  { id: 'overdrive', name: 'Overdrive',        shards: 30, desc: 'reach OVERDRIVE',                 check: g => g.maxTier >= 4 },
   { id: 'endless20', name: 'Beyond the Bloom', shards: 30, desc: 'survive to 20:00',                check: g => g.time >= 1200 },
 ];
 

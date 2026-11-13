@@ -10,6 +10,8 @@ A neon survivors-like for the browser and desktop. Pick a ship, drop into an are
 
 ## Features
 
+- **BEAT SYNC** — the soundtrack is the game clock. Dash **on the beat** for a PERFECT (invulnerable, slashes everything in your path), chain PERFECTs to climb Groove ×2 → ×3 → ×4 → **OVERDRIVE**, and the synth score builds with you. Every bar, a shockwave pulses from your ship.
+
 - **Solo or local co-op** — two pilots, one screen
 - **5 ships** — Vanguard, Tempest, Bastion, plus unlockable Revenant and Wraith
 - **3 arenas** — The Drift, Reactor Core, Void Garden — and a Nightmare mode
@@ -23,6 +25,7 @@ A neon survivors-like for the browser and desktop. Pick a ship, drop into an are
 | Action | Keys |
 | --- | --- |
 | Move | `WASD` or arrow keys |
+| Beat Dash | `Space` (P2: `Enter` / `Right Shift`) · gamepad `A` · touch: tap a second finger |
 | Pause | `Esc` |
 | Mute | `M` |
 | Fullscreen (desktop app) | `F11` |
@@ -37,6 +40,7 @@ web/                 the game itself (plain HTML/CSS/JS, no build step)
   js/util.js         math helpers, RNG, spatial hash, pooling
   js/sprites.js      pre-rendered neon sprites
   js/audio.js        synthesized SFX + adaptive music
+  js/beat.js         Beat Sync: beat clock, Beat Dash, Groove/Overdrive
   js/data.js         all balance tables — tune the game here
   js/game.js         core simulation + world rendering
   js/ui.js           overlays, HUD, procedural icons

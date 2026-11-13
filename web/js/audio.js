@@ -196,9 +196,10 @@ const AudioSys = {
     if (!this.ensure()) return;
     const M = this.music;
     M.mode = mode; M.step = 0;
-    if (M.on) return;
+    if (M.on) { M.anchorT = M.nextT; return; }   // step 0 lands on the next scheduled 16th
     M.on = true;
     M.nextT = this.ctx.currentTime + 0.08;
+    M.anchorT = M.nextT;                          // Beat Sync clock: time of step 0
     M.timer = setInterval(() => this._schedule(), 44);
   },
   stopMusic() {
@@ -223,7 +224,7 @@ const AudioSys = {
   _playStep(step, t, stepDur) {
     const M = this.music;
     const menu = M.mode === 'menu';
-    const I = menu ? 0.12 : M.intensity;
+    const I = menu ? 0.12 : Math.max(M.intensity, M.grooveFloor || 0);   // groove lifts the mix
     const prog = menu ? this.PROG_MENU : (M.boss ? this.PROG_BOSS : this.PROG_RUN);
     const barsPerChord = 2, stepsPerBar = 16;
     const chordIdx = Math.floor(step / (stepsPerBar * barsPerChord)) % prog.length;
@@ -272,6 +273,11 @@ const AudioSys = {
       const seq = [0, 1, 2, 1];
       const m = chord[seq[s16 % 4]] + 12 + (s16 >= 8 && I > 0.7 ? 12 : 0);
       this.tone({ f: this.midi(m), t: M.boss ? 'square' : 'triangle', dur: stepDur * 1.1, vol: 0.02 + I * 0.025, attack: 0.006, when: t, bus });
+    }
+    // OVERDRIVE layer: octave-bass stabs + sparkle on every beat
+    if (M.overdrive) {
+      if (s16 % 4 === 0) this.tone({ f: this.midi(bassM + 24), t: 'square', dur: stepDur * 1.2, vol: 0.028, when: t, bus });
+      if (s16 % 4 === 3) this.tone({ f: this.midi(chord[2] + 36), t: 'triangle', dur: stepDur * 0.9, vol: 0.018, when: t, bus });
     }
     // lead motif — only at high heat, 2-bar phrase
     if (I > 0.78 && step % 2 === 0) {

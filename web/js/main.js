@@ -129,6 +129,12 @@ const App = {
       this.persist();
       UI.tip((IS_TOUCH ? '<b>Drag anywhere</b> to fly' : 'Move with <b>WASD</b>') + ' — your weapons fire on their own.<br>Collect the crystals. Survive.', 6);
     }
+    if (!this.save.seenBeatTip) {
+      this.save.seenBeatTip = true;
+      this.persist();
+      G.defer(7, () => UI.tip('<b>BEAT SYNC</b> — ' + (IS_TOUCH ? 'tap with a <b>second finger</b>' : 'press <b>SPACE</b>') +
+        ' to dash <b>on the beat</b>.<br>Land it as the ring closes for a PERFECT. Chain them for <b>OVERDRIVE</b>.', 8));
+    }
     if (G.coop) UI.tip((IS_TOUCH
       ? 'P1: drag on the <b>left half</b> &nbsp;·&nbsp; P2: drag on the <b>right half</b>'
       : 'P1: <b>WASD</b> / pad 1 &nbsp;·&nbsp; P2: <b>arrows</b> / pad 2') + '<br>Downed pilots revive on a timer — or instantly on level up.', 7);
@@ -197,8 +203,10 @@ const Input = {
       const r = cv.getBoundingClientRect();   // canvas may be inset for the notch
       const lx = e.clientX - r.left, ly = e.clientY - r.top;
       const t = (G.coop && lx > r.width / 2) ? this.touch2 : this.touch;
-      if (t.active) return;
+      // a second finger while you're already steering = Beat Dash
+      if (t.active) { BeatSys.requestDash(G, t === this.touch2 ? 1 : 0); return; }
       t.active = true; t.id = e.pointerId;
+      t.downAt = performance.now(); t.moved = false;
       t.rx = r.left; t.ry = r.top;
       t.ox = t.x = lx; t.oy = t.y = ly;
     });
@@ -207,13 +215,19 @@ const Input = {
       if (!t || !t.active) return;
       const dx = e.clientX - t.rx - t.ox, dy = e.clientY - t.ry - t.oy;
       const d = Math.hypot(dx, dy), max = 52;
+      if (d > 12) t.moved = true;
       const cl = d > max ? max / d : 1;
       t.x = t.ox + dx * cl;
       t.y = t.oy + dy * cl;
     });
     const endTouch = e => {
       for (const t of [this.touch, this.touch2])
-        if (e.pointerId === t.id) { t.active = false; t.id = -1; }
+        if (e.pointerId === t.id) {
+          // a quick tap (no drag) also dashes
+          if (e.type === 'pointerup' && !t.moved && performance.now() - t.downAt < 200)
+            BeatSys.requestDash(G, t === this.touch2 ? 1 : 0);
+          t.active = false; t.id = -1;
+        }
     };
     window.addEventListener('pointerup', endTouch);
     window.addEventListener('pointercancel', endTouch);
@@ -248,6 +262,7 @@ const Input = {
       } else if (G.state === 'pause' || G.state === 'over' || G.state === 'win') {
         if (edge(0)) UI.gpConfirm();
       }
+      if (G.state === 'run' && (edge(0) || edge(5) || edge(7))) BeatSys.requestDash(G, G.coop ? pi : 0);   // A / RB / RT
       if (edge(9)) {           // Start
         if (G.state === 'run') App.pause();
         else if (G.state === 'pause') App.resume();
@@ -271,6 +286,10 @@ const Input = {
       if (G.state === 'title' && !AudioSys.music.on) AudioSys.startMusic('menu');
 
       const k = e.key.toLowerCase();
+      if (G.state === 'run' && !e.repeat) {
+        if (k === ' ') BeatSys.requestDash(G, 0);
+        else if (G.coop && (e.code === 'Enter' || e.code === 'ShiftRight' || e.code === 'Numpad0')) BeatSys.requestDash(G, 1);
+      }
       if (k === 'escape' || k === 'p') {
         if (G.state === 'run') App.pause();
         else if (G.state === 'pause') App.resume();

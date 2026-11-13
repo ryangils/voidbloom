@@ -114,6 +114,8 @@ const G = {
       return pl;
     });
 
+    BeatSys.initRun(this);
+
     // opening wave so the first seconds aren't dead air
     this.defer(2.5, () => {
       for (let i = 0; i < 7; i++) {
@@ -486,7 +488,7 @@ const G = {
   // =========================================================================
   dealDamage(e, base, opts = {}) {
     const p = opts.pl || this.players[0];   // owner of the damage source
-    let dmg = base * p.dmgMult * U.rand(0.88, 1.12);
+    let dmg = base * p.dmgMult * (1 + BeatSys.dmgBonus(p)) * U.rand(0.88, 1.12);
     let crit = false;
     if (!opts.noCrit && Math.random() < p.critChance) { dmg *= p.critMult; crit = true; }
     if (e.marked > this.time - 0.4) dmg *= 1.25;   // Star Furnace mark
@@ -1505,7 +1507,7 @@ const G = {
     const b = this.boss;
     if (!b || b.dead) return;
     const p = pl || this.players[0];
-    let dmg = base * p.dmgMult * U.rand(0.9, 1.1);
+    let dmg = base * p.dmgMult * (1 + BeatSys.dmgBonus(p)) * U.rand(0.9, 1.1);
     let crit = false;
     if (Math.random() < p.critChance) { dmg *= p.critMult; crit = true; }
     if (b.marked > this.time - 0.4) dmg *= 1.25;
@@ -1784,6 +1786,8 @@ const G = {
       }
     }
 
+    BeatSys.update(this, dt);
+
     // shared-screen tether: partners can't split beyond the view
     if (this.players.length === 2) {
       const [a, b2] = this.players;
@@ -2022,6 +2026,7 @@ const G = {
 
     // additive pass: bullets, particles, beams, zaps, rings
     ctx.globalCompositeOperation = 'lighter';
+    BeatSys.renderWorld(this, ctx);
 
     for (const bl of this.bullets) {
       const rot = Math.atan2(bl.vy, bl.vx);
