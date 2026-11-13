@@ -12,6 +12,7 @@ function createWindow() {
     backgroundColor: '#04050c',
     title: 'VOIDBLOOM',
     autoHideMenuBar: true,
+    fullscreen: true,          // launch fullscreen; F11 toggles back to a window
     webPreferences: { contextIsolation: true, sandbox: true },
   });
   Menu.setApplicationMenu(null);
