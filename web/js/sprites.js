@@ -20,6 +20,13 @@ const Sprites = {
 
   get(key) { return this.cache.get(key); },
 
+  // redraw a ship in another colour (ship paints)
+  repaintShip(id, color) {
+    if (!this._ship) return;
+    this.cache.delete('ship' + id);
+    this._ship('ship' + id, color, id);
+  },
+
   // World-render fast path: G.render registers the camera transform here so
   // rotated blits can use raw setTransform instead of save/restore (much faster).
   _base: null,
@@ -167,6 +174,7 @@ const Sprites = {
         ctx.beginPath(); ctx.arc(3, 0, 2.6, 0, TAU); ctx.fill();
       });
     };
+    this._ship = ship;
     ship('ship0', '#4ef3ff', 0);
     ship('ship1', '#b06bff', 1);
     ship('ship2', '#ffd34e', 2);

@@ -9,7 +9,7 @@ VOIDBLOOM
 A neon survivors-like you play to the beat.
 
 ## Short description (Steam allows about 300 characters)
-Survive 15 minutes of neon swarms in a survivors-like where the soundtrack is the clock. Dash on the beat to slash through enemies, chain Perfects into Overdrive, evolve 11 weapons, and take Void Pacts that make you stronger and the swarm angrier. Solo or two-player co-op on one screen.
+Fight through 15 sectors of neon swarms in a survivors-like where the soundtrack is the clock. Dash on the beat to slash through enemies, chain Perfects into Overdrive, evolve 11 weapons, and take Void Pacts that make you stronger and the swarm angrier. Solo or two-player co-op on one screen.
 
 ## Full description
 
@@ -29,6 +29,9 @@ A ring closes in on your ship and lands on every beat. Dash as it lands for a Pe
 When your build is full, the game doesn't run out of things to offer. Void Pacts give unlimited power, and every pact raises the Heat: more enemies, tougher and faster. How hot can you run it?
 
 **Features**
+- A 15-sector campaign with three stars to earn in every sector
+- Pilot Rank with a reward at every rank: ships, paints, perks and shards
+- Rotating contracts, and double XP on your first run each day
 - Beat Sync: dashes, shockwaves and the soundtrack all share one clock
 - Solo or local two-player co-op on one screen
 - 5 ships, 3 arenas with their own hazards, 3 bosses

@@ -3,7 +3,10 @@
 
 const G = {
   state: 'title',        // title | run | levelup | pause | dying | over | winning | win
-  mode: 'normal',        // normal | endless
+  mode: 'normal',        // normal | endless | sector
+  sector: null,          // the campaign sector being flown, or null
+  mod: { spawn: 1, batch: 0, hp: 1, dmg: 1, spd: 1, heal: 1, xp: 1, dealt: 1, eliteStart: null, eliteEvery: null, tide: 0 },
+  killsByType: {},
   arena: 0,
   coop: false,
   nightmare: false,
@@ -55,12 +58,18 @@ const G = {
   // =========================================================================
   // RUN SETUP
   // =========================================================================
-  newRun(charIds, endless = false, arena = 0) {
+  newRun(charIds, endless = false, arena = 0, sector = null) {
     if (!Array.isArray(charIds)) charIds = [charIds];
     this.coop = charIds.length > 1;
     this.pickTurn = 0;
+    this.sector = sector;
+    if (sector) arena = sector.arena;
     this.arena = arena;
-    this.mode = endless ? 'endless' : 'normal';
+    this.mode = sector ? 'sector' : endless ? 'endless' : 'normal';
+    this.mod = Progress.mods(sector);
+    this.killsByType = {};
+    this.overdrives = 0; this.pacts = 0; this.chests = 0; this.downs = 0;
+    this.bossSpawnT = null; this.bossKillT = null; this.sectorEnd = false; this.tideT = 0;
     this.state = 'run';
     this.time = 0; this.kills = 0; this.dmgDealt = 0;
     this.level = 1; this.xp = 0; this.xpNext = xpNeed(1); this.banked = 0;
@@ -89,14 +98,15 @@ const G = {
     this.cam.x = 0; this.cam.y = 0; this.cam.shake = 0;
 
     const hg = (typeof App !== 'undefined' && App.save.hangar) ? App.save.hangar : {};
-    this.rerolls = 2 + (hg.reroll || 0);
-    this.banishes = 1 + (hg.banish || 0);
+    const perks = (typeof App !== 'undefined' && App.save.perks) || {};
+    this.rerolls = 2 + (hg.reroll || 0) + (perks.reroll || 0);
+    this.banishes = 1 + (hg.banish || 0) + (perks.banish || 0);
     this.banned = new Set();
     this.dmgBy = {};
     this.permSlow = 1;
     this.lastShards = 0;
     this.firstHitAt = Infinity;
-    this.nightmare = !!(typeof App !== 'undefined' && App.save.nightmare);
+    this.nightmare = !sector && !!(typeof App !== 'undefined' && App.save.nightmare);
 
     this.players = charIds.map((cid, idx) => {
       const pl = {
@@ -106,7 +116,7 @@ const G = {
         weapons: [], passives: {},
         input: { x: 0, y: 0 },
         down: false, downT: 0, sporeT: 0,
-        bonusDmg: 0, bonusHp: 0, usedWind: false,
+        bonusDmg: 0, bonusHp: 10 * (perks.hull || 0), usedWind: false,
       };
       this.addWeapon(pl, CHARS[cid].weapon);
       this.recalcStats(pl);
@@ -115,7 +125,7 @@ const G = {
     });
 
     BeatSys.initRun(this);
-    this.heat = 0; this.rotWarned = false;
+    this.heat = sector ? sector.heat : 0; this.rotWarned = false;
 
     // opening wave so the first seconds aren't dead air
     this.defer(2.5, () => {
@@ -332,6 +342,7 @@ const G = {
     if (id === 'titan') pl.hp = pl.maxHp;
     for (const w of pl.weapons) this.computeWStats(pl, w);
     this.heat = (this.heat || 0) + 1;
+    this.pacts++;
     AudioSys.play('evolve');
     this.shake(0.3);
     this.emitBurst(pl.x, pl.y, '#ff5252', 40, 320, 8, 0.8);
@@ -340,14 +351,14 @@ const G = {
 
   // VOID ROT: late-run healing weakens so sustain can't outscale the swarm
   healMult() {
-    const t = this.mode === 'endless' ? 900 : this.time;
+    const t = this.mode === 'endless' ? 900 : this.clock();
     if (t <= SUSTAIN.rotStart) return 1;
     return 1 - SUSTAIN.rotMax * Math.min(1, (t - SUSTAIN.rotStart) / (SUSTAIN.rotFull - SUSTAIN.rotStart));
   },
   // lifesteal draws from a small per-second budget
   leech(p, amt) {
     if (amt <= 0 || p.down) return;
-    const take = Math.min(amt * this.healMult(), p.leechPool || 0);
+    const take = Math.min(amt * this.healMult() * this.mod.heal, p.leechPool || 0);
     if (take <= 0) return;
     p.leechPool -= take;
     p.hp = Math.min(p.maxHp, p.hp + take);
@@ -422,13 +433,13 @@ const G = {
     const t = this.effTime();
     const nm = this.nightmare ? NIGHTMARE : null;
     const heat = this.heat || 0;
-    const hpM = DIFF.hpMult(t) * (elite ? DIFF.eliteHp : 1) * this.coopHpMult() * (nm ? nm.hp : 1) * (1 + HEAT.hp * heat);
+    const hpM = DIFF.hpMult(t) * (elite ? DIFF.eliteHp : 1) * this.coopHpMult() * (nm ? nm.hp : 1) * (1 + HEAT.hp * heat) * this.mod.hp;
     const e = {
       type, def, x, y, vx: 0, vy: 0,
       r: def.r * (elite ? DIFF.eliteSize : 1),
       hp: def.hp * hpM, maxHp: def.hp * hpM,
-      dmg: def.dmg * DIFF.dmgMult(t) * (nm ? nm.dmg : 1) * (1 + HEAT.dmg * heat),
-      spd: def.spd * DIFF.spdMult(t) * U.rand(0.92, 1.08) * (1 + 0.03 * this.curseTotal()) * (nm ? nm.spd : 1),
+      dmg: def.dmg * DIFF.dmgMult(t) * (nm ? nm.dmg : 1) * (1 + HEAT.dmg * heat) * this.mod.dmg,
+      spd: def.spd * DIFF.spdMult(t) * U.rand(0.92, 1.08) * (1 + 0.03 * this.curseTotal()) * (nm ? nm.spd : 1) * this.mod.spd,
       elite, flash: 0, atkCd: U.rand(0, 0.3), slow: 1, slowT: 0,
       kx: 0, ky: 0, orbCd: 0, auraCd: 0, scyCd: 0, marked: 0,
       mass: (def.mass || 1) * (elite ? 3 : 1),
@@ -440,9 +451,23 @@ const G = {
     return e;
   },
 
+  // the swarm's clock: real time, or faster in campaign sectors
+  clock() { return this.sector ? this.time * this.sector.pace : this.time; },
+
   effTime() {
     // difficulty time: in endless keep climbing past 900
-    return this.mode === 'endless' ? 900 + this.spawn.endlessT : Math.min(this.time, 900);
+    return this.mode === 'endless' ? 900 + this.spawn.endlessT : Math.min(this.clock(), 900);
+  },
+
+  // campaign: sector survived (or its boss destroyed)
+  sectorClear() {
+    if (this.state !== 'run') return;
+    this.state = 'winning'; this.seqT = 0; this.timeScale = 0.3;
+    AudioSys.play('win');
+    AudioSys.setBoss(false);
+    for (const e of this.enemies) if (!e.dead) this.killEnemy(e);
+    this.clearEBullets();
+    UI.announce('SECTOR CLEAR', this.sector.name, '#ffd34e', 2);
   },
 
   updateSpawning(dt) {
@@ -454,7 +479,7 @@ const G = {
     // phase progression (per-arena tables)
     const PHASES = this.arena === 1 ? SPAWN_PHASES_REACTOR : this.arena === 2 ? SPAWN_PHASES_GARDEN : SPAWN_PHASES;
     let phase = PHASES[S.phase];
-    while (S.phase < PHASES.length - 1 && this.time >= PHASES[S.phase + 1].t && this.mode !== 'endless')
+    while (S.phase < PHASES.length - 1 && this.clock() >= PHASES[S.phase + 1].t && this.mode !== 'endless')
       phase = PHASES[++S.phase];
     if (this.mode === 'endless') phase = PHASES[PHASES.length - 1];
 
@@ -464,8 +489,8 @@ const G = {
     const bossFactor = this.boss && !this.boss.dead ? 1.5 : 1;
     if (S.timer <= 0) {
       const heat = this.heat || 0;
-      S.timer = phase.interval * speedup * bossFactor / (1 + 0.1 * this.curseTotal()) / (1 + HEAT.spawnRate * heat);
-      const batch = phase.batch + (this.coop ? 1 : 0) + Math.floor(heat / HEAT.batchEvery) +
+      S.timer = phase.interval * speedup * bossFactor / (1 + 0.1 * this.curseTotal()) / (1 + HEAT.spawnRate * heat) / this.mod.spawn;
+      const batch = phase.batch + (this.coop ? 1 : 0) + Math.floor(heat / HEAT.batchEvery) + this.mod.batch +
         (this.mode === 'endless' ? Math.floor(S.endlessT / 120) : 0);
       const types = Object.keys(phase.types);
       const weights = types.map(k => phase.types[k]);
@@ -480,7 +505,7 @@ const G = {
 
     // scripted events (per-arena)
     const EVENTS = this.arena === 1 ? SPAWN_EVENTS_REACTOR : this.arena === 2 ? SPAWN_EVENTS_GARDEN : SPAWN_EVENTS;
-    if (this.mode !== 'endless' && S.eventIdx < EVENTS.length && this.time >= EVENTS[S.eventIdx].t) {
+    if (this.mode !== 'endless' && S.eventIdx < EVENTS.length && this.clock() >= EVENTS[S.eventIdx].t) {
       const ev = EVENTS[S.eventIdx++];
       UI.announce(ev.msg, '', '#ff5252', 1.8);
       AudioSys.play('warn');
@@ -503,10 +528,10 @@ const G = {
     }
 
     // elites
-    if (this.time >= DIFF.eliteStart) {
+    if (this.clock() >= (this.mod.eliteStart != null ? this.mod.eliteStart : DIFF.eliteStart)) {
       S.eliteTimer -= dt;
       if (S.eliteTimer <= 0) {
-        S.eliteTimer = DIFF.eliteEvery / (1 + HEAT.elite * (this.heat || 0));
+        S.eliteTimer = (this.mod.eliteEvery || DIFF.eliteEvery) / (1 + HEAT.elite * (this.heat || 0));
         const phaseTypes = Object.keys(phase.types).filter(t => t !== 'mote' && t !== 'dart');
         const type = phaseTypes.length ? U.pick(phaseTypes) : 'mote';
         const pos = this.spawnPos();
@@ -516,7 +541,9 @@ const G = {
     }
 
     // bosses
-    if (this.mode !== 'endless') {
+    if (this.mode === 'sector') {
+      // campaign bosses arrive when the sector timer runs out (Progress.tick)
+    } else if (this.mode !== 'endless') {
       if (this.bossIdx < BOSS_TIMES.length && this.time >= BOSS_TIMES[this.bossIdx].t && !this.boss) {
         this.spawnBoss(BOSS_TIMES[this.bossIdx].id);
         this.bossIdx++;
@@ -536,7 +563,7 @@ const G = {
   // =========================================================================
   dealDamage(e, base, opts = {}) {
     const p = opts.pl || this.players[0];   // owner of the damage source
-    let dmg = base * p.dmgMult * (1 + BeatSys.dmgBonus(p)) * U.rand(0.88, 1.12);
+    let dmg = base * p.dmgMult * (1 + BeatSys.dmgBonus(p)) * this.mod.dealt * U.rand(0.88, 1.12);
     let crit = false;
     if (!opts.noCrit && Math.random() < p.critChance) { dmg *= p.critMult; crit = true; }
     if (e.marked > this.time - 0.4) dmg *= 1.25;   // Star Furnace mark
@@ -560,6 +587,7 @@ const G = {
     if (e.dead) return;
     e.dead = true;
     this.kills++;
+    this.killsByType[e.type] = (this.killsByType[e.type] || 0) + 1;
     const col = e.def.color;
     this.emitBurst(e.x, e.y, col, e.elite ? 26 : 10, e.elite ? 260 : 170, e.elite ? 8 : 5, e.elite ? 0.7 : 0.45);
     AudioSys.play('edie');
@@ -639,6 +667,7 @@ const G = {
       const hg = (typeof App !== 'undefined' && App.save.hangar) ? App.save.hangar : {};
       if (!pl.usedWind && ((pl.passives.wind || 0) > 0 || (hg.wind || 0) > 0)) {
         pl.usedWind = true;
+        this.downs++;
         pl.hp = Math.round(pl.maxHp * 0.5);
         pl.iframes = 3;
         this.spawnRing(pl.x, pl.y, 220, '#ffffff');
@@ -657,6 +686,7 @@ const G = {
       if (this.coop && othersAlive) {
         // downed, not dead — partner can carry until the revive timer
         pl.down = true; pl.downT = 15;
+        this.downs++;
         AudioSys.play('bossroar');
         UI.announce('P' + (pl.idx + 1) + ' IS DOWN', 'revives in 15s — or on level up', '#ff5252', 2.5);
         return;
@@ -1474,9 +1504,10 @@ const G = {
     p = p || this.players[0];
     switch (k.kind) {
       case 'heart':
-        p.hp = Math.min(p.maxHp, p.hp + 30);
+        const heal = Math.round(30 * this.mod.heal);
+        p.hp = Math.min(p.maxHp, p.hp + heal);
         AudioSys.play('heart');
-        this.spawnDnum(p.x, p.y - 24, 30, false, '#6dff8a', '+');
+        this.spawnDnum(p.x, p.y - 24, heal, false, '#6dff8a', '+');
         break;
       case 'magnet':
         AudioSys.play('magnet');
@@ -1484,6 +1515,7 @@ const G = {
         this.spawnRing(p.x, p.y, 300, '#4ef3ff');
         break;
       case 'chest': {
+        this.chests++;
         AudioSys.play('chest');
         this.shake(0.2);
         this.emitBurst(k.x, k.y, '#ffd34e', 30, 280, 7, 0.8);
@@ -1512,7 +1544,7 @@ const G = {
   },
 
   gainXp(v) {
-    this.xp += v;
+    this.xp += v * this.mod.xp;
     let leveled = false;
     while (this.xp >= this.xpNext) {
       this.xp -= this.xpNext;
@@ -1555,7 +1587,7 @@ const G = {
     const b = this.boss;
     if (!b || b.dead) return;
     const p = pl || this.players[0];
-    let dmg = base * p.dmgMult * (1 + BeatSys.dmgBonus(p)) * U.rand(0.9, 1.1);
+    let dmg = base * p.dmgMult * (1 + BeatSys.dmgBonus(p)) * this.mod.dealt * U.rand(0.9, 1.1);
     let crit = false;
     if (Math.random() < p.critChance) { dmg *= p.critMult; crit = true; }
     if (b.marked > this.time - 0.4) dmg *= 1.25;
@@ -1579,6 +1611,12 @@ const G = {
     this.spawnRing(b.x, b.y, 400, b.def.color);
     this.clearEBullets();
 
+    if (this.mode === 'sector' && this.sector && b.def.id === this.sector.boss) {
+      this.bossKillT = this.time;
+      this.boss = null;
+      this.sectorClear();
+      return;
+    }
     if (b.def.id === 'bloom' && this.mode === 'normal') {
       // VICTORY
       this.state = 'winning'; this.seqT = 0; this.timeScale = 0.3;
@@ -1791,6 +1829,7 @@ const G = {
     if (this.hitStop > 0) { this.hitStop -= rawDt; return; }
     const dt = rawDt * this.timeScale;
     this.time += dt;
+    Progress.tick(this, dt);
     this.runDeferred();
 
     // input & movement (per player)
@@ -1823,7 +1862,7 @@ const G = {
       p.x += p.vx * dt; p.y += p.vy * dt;
       if (p.iframes > 0) p.iframes -= dt;
       if (p.hurtT > 0) p.hurtT -= dt;
-      if (p.regen > 0) p.hp = Math.min(p.maxHp, p.hp + p.regen * this.healMult() * dt);
+      if (p.regen > 0) p.hp = Math.min(p.maxHp, p.hp + p.regen * this.healMult() * this.mod.heal * dt);
       p.leechPool = Math.min(p.maxHp * SUSTAIN.leechPerSec, (p.leechPool || 0) + p.maxHp * SUSTAIN.leechPerSec * dt);
 
       // engine trail
@@ -1838,7 +1877,7 @@ const G = {
     }
 
     BeatSys.update(this, dt);
-    if (!this.rotWarned && this.time >= SUSTAIN.rotStart && this.mode !== 'endless') {
+    if (!this.rotWarned && this.clock() >= SUSTAIN.rotStart && this.mode !== 'endless') {
       this.rotWarned = true;
       UI.announce('VOID ROT', 'healing weakens from here on', '#b06bff', 2.4);
       AudioSys.play('warn');

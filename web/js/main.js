@@ -33,6 +33,7 @@ const App = {
     if (this.save.vols) Object.assign(AudioSys.vols, this.save.vols);
     if (this.save.opts) for (const k in OPTS) if (typeof this.save.opts[k] === 'number') OPTS[k] = this.save.opts[k];
     Quality.apply();
+    Progress.init();
   },
 
   shipUnlocked(ch) { return !ch.cost || !!this.save.ships[ch.id]; },
@@ -83,7 +84,9 @@ const App = {
     location.reload();
   },
 
-  recordRun(won) {
+  recordRun(cleared) {
+    // a cleared sector counts for the campaign, not as winning the full 15-minute run
+    const won = cleared && G.mode !== 'sector';
     const key = G.charId + '_' + G.arena;
     const b = this.save.best[key] || { time: 0, kills: 0, won: false };
     if (G.time > b.time) { b.time = G.time; b.kills = G.kills; }
@@ -106,6 +109,10 @@ const App = {
         G.newAchievements.push(a);
       }
     }
+    // campaign stars, contracts and pilot rank
+    const pr = Progress.finishRun(G, cleared);
+    shards += pr.shards;
+    G.report = pr.report;
     G.lastShards = shards;
     this.save.shards = (this.save.shards || 0) + shards;
     // lifetime stats
@@ -120,13 +127,34 @@ const App = {
 
   startRun(charId) { this._begin([charId]); },
   startCoop(charIds) { this._begin(charIds); },
-  retry() { this._begin(this._lastChars); },
+  retry() { this._begin(this._lastChars, this._lastSector); },
+  // after clearing a sector: straight into the next one with the same ship(s)
+  nextSector() {
+    const n = G.report && G.report.nextUnlocked;
+    this._begin(this._lastChars, n != null ? n : this._lastSector);
+  },
 
-  _begin(charIds) {
+  _begin(charIds, sectorIdx) {
     this._lastChars = charIds.slice();
+    let sec = null;
+    if (sectorIdx != null) sec = SECTORS[sectorIdx];
+    else if (this.save.track === 'campaign') {
+      let i = this.save.sector || 0;
+      if (!Progress.unlocked(i)) i = this.save.sector = Progress.suggestedSector();
+      sec = SECTORS[i];
+    }
+    this._lastSector = sec ? sec.idx : null;
+    if (sec) { this.save.sector = sec.idx; this.persist(); }
     UI.hideAll();
-    G.newRun(charIds, false, this.save.arena || 0);
-    if (G.arena === 1) UI.announce('REACTOR CORE', 'mind the plasma', '#ff9a5c', 2.5);
+    G.newRun(charIds, false, this.save.arena || 0, sec);
+    if (sec) {
+      UI.announce('SECTOR ' + sec.num, sec.name, ARENAS[sec.arena].accent, 2.6);
+      const brief = (sec.twist ? '<b>' + TWISTS[sec.twist].name + '</b>: ' + TWISTS[sec.twist].desc + '<br>' : '') +
+        (sec.boss ? 'Survive ' + U.fmtTime(sec.len) + ', then destroy the boss.' : 'Survive ' + U.fmtTime(sec.len) + '.') +
+        ' ★ ' + sec.stars.map(o => Progress.objectiveText(o)).join(' &nbsp;★ ');
+      G.defer(!this.save.seenTip ? 15 : G.coop ? 8 : 0.4, () => UI.tip(brief, 7));
+    }
+    else if (G.arena === 1) UI.announce('REACTOR CORE', 'mind the plasma', '#ff9a5c', 2.5);
     else if (G.coop) UI.announce('CO-OP SORTIE', 'protect each other', '#4ef3ff', 2.2);
     AudioSys.ensure();
     AudioSys.setBoss(false);

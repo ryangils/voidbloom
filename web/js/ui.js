@@ -28,8 +28,19 @@ const UI = {
     $('btn-abandon').onclick = () => { AudioSys.play('uiBack'); App.toTitle(); };
     $('btn-retry').onclick = () => { AudioSys.play('ui'); App.retry(); };
     $('btn-title1').onclick = () => { AudioSys.play('uiBack'); App.toTitle(); };
-    $('btn-endless').onclick = () => { AudioSys.play('ui'); App.startEndless(); };
+    // the victory screen's big button: Endless after the full run, Next sector after a campaign clear
+    $('btn-endless').onclick = () => {
+      AudioSys.play('ui');
+      if (G.mode === 'sector') App.nextSector(); else App.startEndless();
+    };
+    $('btn-replay').onclick = () => { AudioSys.play('ui'); App.retry(); };
     $('btn-title2').onclick = () => { AudioSys.play('uiBack'); App.toTitle(); };
+    const toMap = () => { AudioSys.play('ui'); App.toTitle(); this.openSub('sectors'); };
+    $('btn-map1').onclick = toMap; $('btn-map2').onclick = toMap;
+    $('btn-rewards').onclick = () => { AudioSys.play('ui'); this.openSub('rewards'); };
+    $('rank-chip').onclick = () => { AudioSys.play('ui'); this.openSub('rewards'); };
+    $('btn-sectors-back').onclick = () => { AudioSys.play('uiBack'); this.closeSub(); };
+    $('btn-rewards-back').onclick = () => { AudioSys.play('uiBack'); this.closeSub(); };
 
     $('btn-hangar').onclick = () => { AudioSys.play('ui'); this.showHangar(); };
     // sub-screens: Settings and How to play open from the title or the pause menu
@@ -63,7 +74,7 @@ const UI = {
   show(name) { (this.els[name] || document.getElementById(name)).classList.add('show'); },
   hide(name) { (this.els[name] || document.getElementById(name)).classList.remove('show'); },
   hideAll() {
-    ['title', 'levelup', 'pause', 'gameover', 'victory', 'hangar', 'settings', 'howto', 'credits'].forEach(n => this.hide(n));
+    ['title', 'levelup', 'pause', 'gameover', 'victory', 'hangar', 'settings', 'howto', 'credits', 'sectors', 'rewards'].forEach(n => this.hide(n));
     this._sub = this._subParent = null;
   },
 
@@ -76,12 +87,15 @@ const UI = {
     if (parent) this.hide(parent);
     this._sub = name; this._subParent = parent;
     if (name === 'settings') this.syncSettings();
+    if (name === 'sectors') this.buildSectors();
+    if (name === 'rewards') this.buildRewards();
     this.gpResetFocus();
     this.show(name);
   },
   closeSub() {
     if (!this._sub) return false;
     this.hide(this._sub);
+    if (this._subParent === 'title') this.buildCharCards();   // ranks, paints or the sector may have changed
     if (this._subParent) this.show(this._subParent);
     this._sub = this._subParent = null;
     this._eraseArmed = false;
@@ -251,7 +265,7 @@ const UI = {
       if (locked) card.classList.add('locked');
       const best = App.save.best[ch.id + '_' + (App.save.arena || 0)];
       const bestTxt = locked
-        ? `<span class="char-unlock">Unlock for ◆ ${ch.cost}</span>`
+        ? `<span class="char-unlock">Unlock for ◆ ${ch.cost}${ch.id === 3 ? ' or at rank 10' : ch.id === 4 ? ' or at rank 20' : ''}</span>`
         : best && best.time > 0
           ? `Best ${U.fmtTime(best.time)}, ${best.kills.toLocaleString()} kills` + (best.won ? ' ★ cleared' : '')
           : 'Not flown yet';
@@ -286,6 +300,169 @@ const UI = {
     document.getElementById('title-shards').textContent = '◆ ' + (App.save.shards || 0);
     this.buildModeRow();
     this.buildArenaRow();
+    this.buildRankChip();
+    this.buildSectorBrief();
+  },
+
+  // ------------------------------------------------------------------
+  // campaign + rewards on the title screen
+  // ------------------------------------------------------------------
+  starStr(st) { return st.map(b => b ? '★' : '☆').join(''); },
+
+  buildRankChip() {
+    const R = App.save.rank, need = rankNeed(R.r), nx = Progress.nextRewardText();
+    const el = document.getElementById('rank-chip');
+    el.innerHTML = `<span class="rk">Rank ${R.r}</span>
+      <span class="xpbar"><i style="width:${Math.round(R.xp / need * 100)}%"></i></span>
+      <span class="rn">Rank ${nx.rank}: ${nx.label}</span>`;
+  },
+
+  buildSectorBrief() {
+    const el = document.getElementById('sector-brief');
+    const hint = document.getElementById('title-hint');
+    if (App.save.track !== 'campaign') {
+      el.style.display = 'none';
+      hint.textContent = 'Pick a ship to launch. Survive 15 minutes, then kill what waits at the end.';
+      return;
+    }
+    const sec = SECTORS[App.save.sector] || SECTORS[0], st = Progress.stars(sec.idx);
+    const az = ARENAS[sec.arena];
+    el.style.display = '';
+    el.style.setProperty('--acc', az.accent);
+    el.innerHTML = `<div class="sb-head"><span class="sb-num">Sector ${sec.num}</span> ${sec.name}
+        <span class="sb-meta">${az.name[0] + az.name.slice(1).toLowerCase()}, ${U.fmtTime(sec.len)}${sec.boss ? ' and a boss' : ''}</span></div>
+      ${sec.twist ? `<div class="sb-twist"><b>${TWISTS[sec.twist].name}:</b> ${TWISTS[sec.twist].desc}</div>` : ''}
+      <div class="sb-stars">${['Clear the sector', ...sec.stars.map(o => Progress.objectiveText(o))]
+        .map((t, i) => `<span class="${st[i] ? 'got' : ''}">${st[i] ? '★' : '☆'} ${t}</span>`).join('')}</div>`;
+    hint.textContent = 'Pick a ship to launch.';
+  },
+
+  buildSectors() {
+    const total = Progress.totalStars();
+    document.getElementById('sec-total').textContent = `★ ${total} of ${SECTORS.length * 3}`;
+    const wrap = document.getElementById('sec-groups');
+    wrap.innerHTML = '';
+    ARENAS.forEach(az => {
+      const g = document.createElement('div');
+      g.className = 'sec-group';
+      g.style.setProperty('--acc', az.accent);
+      g.innerHTML = `<div class="sec-gh">${az.name}</div>`;
+      const grid = document.createElement('div');
+      grid.className = 'sec-grid';
+      SECTORS.filter(s => s.arena === az.id).forEach(sec => {
+        const lock = Progress.lockReason(sec.idx), st = Progress.stars(sec.idx);
+        const t = document.createElement('div');
+        t.className = 'sec-tile' + (lock ? ' locked' : '') + (App.save.sector === sec.idx ? ' picked' : '') + (st[0] ? ' clear' : '');
+        t.innerHTML = `<div class="sn">${sec.num}</div><div class="st">${sec.name}</div>
+          <div class="sm">${U.fmtTime(sec.len)}${sec.boss ? ', boss' : ''}${sec.twist ? ', ' + TWISTS[sec.twist].name.toLowerCase() : ''}</div>
+          <div class="ss">${lock ? '<span class="lk">' + lock + '</span>' : this.starStr(st)}</div>`;
+        if (!lock) t.onclick = () => {
+          AudioSys.play('ui');
+          App.save.sector = sec.idx; App.save.track = 'campaign';
+          App.persist();
+          this.closeSub();
+        };
+        grid.appendChild(t);
+      });
+      g.appendChild(grid);
+      wrap.appendChild(g);
+    });
+  },
+
+  buildRewards() {
+    const s = App.save, R = s.rank, need = rankNeed(R.r);
+    document.getElementById('rw-title').textContent = 'PILOT RANK ' + R.r;
+    document.getElementById('rw-bar').style.width = Math.round(R.xp / need * 100) + '%';
+    document.getElementById('rw-xp').textContent = `${R.xp} of ${need} XP to rank ${R.r + 1}` +
+      (s.lastBoost !== new Date().toDateString() ? '. Your next run today earns double XP.' : '');
+    // contracts
+    const cw = document.getElementById('rw-contracts');
+    cw.innerHTML = s.contracts.map(c => {
+      const pay = CONTRACT_PAY[c.tier], f = Math.min(1, c.prog / c.n);
+      return `<div class="ct"><div class="ct-t">${Progress.contractText(c)}</div>
+        <div class="xpbar"><i style="width:${Math.round(f * 100)}%"></i></div>
+        <div class="ct-p">${Math.floor(Math.min(c.prog, c.n)).toLocaleString()} / ${c.n.toLocaleString()} &nbsp; <span class="pay">◆ ${pay.shards} and ${pay.xp} XP</span></div></div>`;
+    }).join('');
+    // track: a few behind, the rest ahead
+    const tr = document.getElementById('rw-track');
+    let html = '';
+    for (let r = Math.max(2, R.r - 2); r <= R.r + 9; r++) {
+      const got = r <= R.r;
+      html += `<div class="tr-row${got ? ' got' : ''}${r === R.r + 1 ? ' next' : ''}"><span class="tr-r">${r}</span><span class="tr-l">${rewardLabel(rankReward(r))}</span><span class="tr-s">${got ? '✓' : ''}</span></div>`;
+    }
+    tr.innerHTML = html;
+    // paints
+    const pw = document.getElementById('rw-paints');
+    pw.innerHTML = '';
+    CHARS.forEach(ch => {
+      const owned = s.paints[ch.id] || [];
+      const row = document.createElement('div');
+      row.className = 'pt-row';
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = 40;
+      Sprites.draw(cv.getContext('2d'), ch.ship, 20, 20, -Math.PI / 2, 0.9);
+      row.appendChild(cv);
+      row.insertAdjacentHTML('beforeend', `<span class="pt-n" style="color:${ch.color}">${ch.name}</span>`);
+      const sw = document.createElement('span');
+      sw.className = 'pt-sw';
+      [null, ...owned].forEach(p => {
+        const b = document.createElement('span');
+        const col = p ? PAINT_COLORS[p].color : ch.baseColor;
+        b.className = 'sw' + ((s.equip[ch.id] || null) === p ? ' on' : '');
+        b.style.setProperty('--c', col);
+        b.title = p ? PAINT_COLORS[p].name : 'Standard';
+        b.setAttribute('aria-label', b.title);
+        b.onclick = () => { AudioSys.play('ui'); Progress.equip(ch.id, p); this.buildRewards(); };
+        sw.appendChild(b);
+      });
+      if (!owned.length) sw.insertAdjacentHTML('beforeend', '<span class="pt-none">Paints come from rank rewards</span>');
+      row.appendChild(sw);
+      pw.appendChild(row);
+    });
+  },
+
+  // ------------------------------------------------------------------
+  // end-of-run payout: stars, rank XP, contracts, what to chase next
+  // ------------------------------------------------------------------
+  renderProgress(el) {
+    const rep = G.report;
+    if (!rep) { el.innerHTML = ''; return; }
+    let h = '';
+    if (rep.sector) {
+      h += '<div class="pg-stars">' + rep.sector.labels.map((t, i) =>
+        `<div class="pg-star${rep.sector.after[i] ? ' got' : ''}${rep.sector.fresh[i] ? ' fresh' : ''}"><b>${rep.sector.after[i] ? '★' : '☆'}</b><span>${t}</span>${rep.sector.fresh[i] ? '<em>new</em>' : ''}</div>`).join('') + '</div>';
+    }
+    const need0 = rankNeed(rep.rankBefore);
+    h += `<div class="pg-rank"><span class="rk" id="pg-rk-${el.id}">Rank ${rep.rankBefore}</span>
+      <span class="xpbar big"><i id="pg-bar-${el.id}" style="width:${Math.round(rep.xpBefore / need0 * 100)}%"></i></span>
+      <span class="pg-xp">+${rep.xp} XP${rep.daily ? ' <em>first run today ×2</em>' : ''}</span></div>`;
+    h += `<div class="pg-ups" id="pg-ups-${el.id}"></div>`;
+    h += '<div class="contracts small">' + rep.contracts.map(c =>
+      `<div class="ct${c.done ? ' done' : ''}"><div class="ct-t">${c.text}</div>
+        <div class="xpbar"><i style="width:${Math.round(c.after / c.n * 100)}%"></i></div>
+        <div class="ct-p">${c.done ? `Done: ◆ ${c.pay.shards} and ${c.pay.xp} XP. New: ${c.next}` : `${Math.floor(c.after).toLocaleString()} / ${c.n.toLocaleString()}`}</div></div>`).join('') + '</div>';
+    h += `<div class="pg-next">${rep.next}</div>`;
+    el.innerHTML = h;
+    // fill the bar, ranking up as many times as earned
+    const bar = document.getElementById('pg-bar-' + el.id), rk = document.getElementById('pg-rk-' + el.id);
+    const ups = document.getElementById('pg-ups-' + el.id);
+    const steps = rep.ranks.slice();
+    const fin = () => { bar.style.width = Math.round(rep.xpAfter / rankNeed(rep.rankAfter) * 100) + '%'; };
+    const next = () => {
+      if (!steps.length) { setTimeout(fin, 60); return; }
+      const u = steps.shift();
+      bar.style.width = '100%';
+      setTimeout(() => {
+        rk.textContent = 'Rank ' + u.rank;
+        bar.style.transition = 'none'; bar.style.width = '0%';
+        void bar.offsetWidth; bar.style.transition = '';
+        ups.insertAdjacentHTML('beforeend', `<div class="pg-up">Rank ${u.rank}: ${u.label}</div>`);
+        AudioSys.play('evolve');
+        setTimeout(next, 250);
+      }, 650);
+    };
+    setTimeout(next, 450);
+    if (rep.sector && rep.sector.fresh.some(Boolean)) setTimeout(() => AudioSys.play('chest'), 300);
   },
 
   _p1Char: null,
@@ -317,21 +494,36 @@ const UI = {
   buildArenaRow() {
     const row = document.getElementById('arena-row');
     row.innerHTML = '';
+    const camp = App.save.track === 'campaign';
+    // CAMPAIGN: 15 short sectors. Tapping it opens the sector map.
+    const cc = document.createElement('div');
+    cc.className = 'arena-card camp' + (camp ? ' picked' : '');
+    cc.style.setProperty('--pick', '#ffd34e');
+    const cs = SECTORS[App.save.sector] || SECTORS[0];
+    cc.innerHTML = `<div class="an">CAMPAIGN</div><div class="as">${camp ? 'Sector ' + cs.num + ', ' : ''}★ ${Progress.totalStars()}/${SECTORS.length * 3}</div>`;
+    cc.onclick = () => {
+      AudioSys.play('ui');
+      App.save.track = 'campaign';
+      App.persist();
+      this.openSub('sectors');
+    };
+    row.appendChild(cc);
     ARENAS.forEach(az => {
       const card = document.createElement('div');
-      card.className = 'arena-card' + ((App.save.arena || 0) === az.id ? ' picked' : '');
+      card.className = 'arena-card' + (!camp && (App.save.arena || 0) === az.id ? ' picked' : '');
       card.style.setProperty('--pick', az.accent);
       card.innerHTML = `<div class="an">${az.name}</div><div class="as">${az.sub}</div>`;
       card.onclick = () => {
         AudioSys.play('ui');
         App.save.arena = az.id;
+        App.save.track = 'survival';
         App.persist();
         this.buildCharCards();
       };
       row.appendChild(card);
     });
     // NIGHTMARE toggle — earned by beating the game once
-    if (App.hasWon()) {
+    if (App.hasWon() && !camp) {
       const nm = document.createElement('div');
       nm.className = 'arena-card nm' + (App.save.nightmare ? ' picked' : '');
       nm.innerHTML = `<div class="an">NIGHTMARE</div><div class="as">${App.save.nightmare ? 'armed · ×1.75 shards' : 'harder · ×1.75 shards'}</div>`;
@@ -371,7 +563,7 @@ const UI = {
     }
     if (G.state === 'pause') App.resume();
     else if (G.state === 'over') App.retry();
-    else if (G.state === 'win') App.startEndless();
+    else if (G.state === 'win') { if (G.mode === 'sector') App.nextSector(); else App.startEndless(); }
   },
   gpResetFocus() {
     this._gpIdx = 0;
@@ -742,14 +934,25 @@ const UI = {
     App.recordRun(false);
     this._statsRows(this.els.deathStats);
     this._buildRecap(this.els.deathBuild);
+    document.getElementById('btn-map1').style.display = G.mode === 'sector' ? '' : 'none';
+    document.getElementById('btn-retry').textContent = G.mode === 'sector' ? 'TRY AGAIN' : 'FLY AGAIN';
     this.show('gameover');
+    this.renderProgress(document.getElementById('death-prog'));
   },
 
   showVictory() {
     App.recordRun(true);
     this._statsRows(this.els.winStats);
     this._buildRecap(this.els.winBuild);
+    const sector = G.mode === 'sector', rep = G.report || {};
+    document.getElementById('win-title').textContent = sector ? 'SECTOR CLEAR' : 'THE VOID BLOOMS';
+    document.getElementById('win-sub').textContent = sector ? 'Sector ' + G.sector.num + ', ' + G.sector.name : 'you outlived the garden itself';
+    const big = document.getElementById('btn-endless');
+    big.textContent = !sector ? 'ENDLESS MODE' : rep.nextUnlocked != null ? 'NEXT SECTOR' : 'FLY AGAIN';
+    document.getElementById('btn-replay').style.display = sector && rep.nextUnlocked != null ? '' : 'none';
+    document.getElementById('btn-map2').style.display = sector ? '' : 'none';
     this.show('victory');
+    this.renderProgress(document.getElementById('win-prog'));
   },
 
   showPause() {
@@ -835,8 +1038,16 @@ const UI = {
     ctx.font = 'bold 30px ' + FONT;
     ctx.fillStyle = '#eaf4ff';
     if (Quality.shadows) { ctx.shadowColor = '#4ef3ff'; ctx.shadowBlur = 10; }
-    ctx.fillText(U.fmtTime(G.time), w / 2, 34);
+    // campaign: count down to the end of the sector
+    const tTxt = G.mode !== 'sector' ? U.fmtTime(G.time)
+      : G.sectorEnd ? (G.boss ? 'BOSS' : '0:00') : U.fmtTime(Math.max(0, Math.ceil(G.sector.len - G.time)));
+    ctx.fillText(tTxt, w / 2, 34);
     ctx.shadowBlur = 0;
+    if (G.mode === 'sector') {
+      ctx.font = 'bold 11px ' + FONT;
+      ctx.fillStyle = ARENAS[G.sector.arena].accent;
+      ctx.fillText('SECTOR ' + G.sector.num, w / 2, 56);
+    }
     if (G.mode === 'endless') {
       ctx.font = 'bold 11px ' + FONT;
       ctx.fillStyle = '#ffd34e';

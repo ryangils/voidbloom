@@ -28,20 +28,23 @@
 <div class="overlay" id="title">
   <h1 class="logo">VOIDBLOOM</h1>
   <div class="tagline">Survive the swarm. Bloom the void.</div>
+  <div class="rank-chip" id="rank-chip" role="button" tabindex="0"></div>
   <div class="setup-row">
     <div class="arena-row" id="mode-row"></div>
     <div class="arena-row" id="arena-row"></div>
   </div>
+  <div class="sector-brief" id="sector-brief"></div>
   <div id="coop-hint" style="display:none"></div>
   <div class="char-row" id="char-row"></div>
   <div class="title-nav">
     <span class="btn nav" id="btn-hangar">Hangar<span id="title-shards">◆ 0</span></span>
+    <span class="btn nav" id="btn-rewards">Rewards</span>
     <span class="btn nav" id="btn-howto">How to play</span>
     <span class="btn nav" id="btn-settings">Settings</span>
     <span class="btn nav" id="btn-credits">Credits</span>
     <span class="btn nav warn desk-app-only" id="btn-quit-title">Quit</span>
   </div>
-  <div class="hint">Pick a ship to launch. Survive 15 minutes, then kill what waits at the end.</div>
+  <div class="hint" id="title-hint">Pick a ship to launch.</div>
   <div class="version" id="version-tag"></div>
 </div>
 
@@ -98,8 +101,10 @@
     <div class="tagline" style="margin-top:6px">the void takes another</div>
     <div id="death-build" class="build-recap"></div>
     <div id="death-stats" class="stat-grid"></div>
+    <div id="death-prog" class="prog"></div>
     <div>
       <div class="btn big" id="btn-retry">FLY AGAIN</div>
+      <div class="btn" id="btn-map1">SECTORS</div>
       <div class="btn" id="btn-title1">TITLE</div>
     </div>
   </div>
@@ -108,14 +113,43 @@
 <!-- VICTORY -->
 <div class="overlay" id="victory">
   <div class="panel">
-    <div class="win-title">THE VOID BLOOMS</div>
-    <div class="tagline" style="margin-top:6px">you outlived the garden itself</div>
+    <div class="win-title" id="win-title">THE VOID BLOOMS</div>
+    <div class="tagline" style="margin-top:6px" id="win-sub">you outlived the garden itself</div>
     <div id="win-build" class="build-recap"></div>
     <div id="win-stats" class="stat-grid"></div>
+    <div id="win-prog" class="prog"></div>
     <div>
       <div class="btn big" id="btn-endless">ENDLESS MODE</div>
+      <div class="btn" id="btn-replay">REPLAY</div>
+      <div class="btn" id="btn-map2">SECTORS</div>
       <div class="btn" id="btn-title2">TITLE</div>
     </div>
+  </div>
+</div>
+
+<!-- CAMPAIGN MAP -->
+<div class="overlay" id="sectors">
+  <div class="panel wide">
+    <div class="lvl-title" style="color:var(--cyan); text-shadow:0 0 18px rgba(78,243,255,.45)">CAMPAIGN</div>
+    <div class="lvl-sub" id="sec-total"></div>
+    <div id="sec-groups"></div>
+    <div><div class="btn big" id="btn-sectors-back">BACK</div></div>
+  </div>
+</div>
+
+<!-- REWARDS: rank, contracts, paints -->
+<div class="overlay" id="rewards">
+  <div class="panel wide">
+    <div class="lvl-title" style="color:var(--gold); text-shadow:0 0 18px rgba(255,211,78,.45)" id="rw-title">PILOT RANK</div>
+    <div class="xpbar big"><i id="rw-bar"></i></div>
+    <div class="lvl-sub" id="rw-xp"></div>
+    <h3 class="sec-h">Contracts</h3>
+    <div id="rw-contracts" class="contracts"></div>
+    <h3 class="sec-h">Rank rewards</h3>
+    <div id="rw-track" class="track"></div>
+    <h3 class="sec-h">Ship paints</h3>
+    <div id="rw-paints" class="paints"></div>
+    <div><div class="btn big" id="btn-rewards-back">BACK</div></div>
   </div>
 </div>
 
@@ -161,6 +195,8 @@
       <p>Each level offers three upgrades. Max a weapon to evolve it. Once your build is full, <b>Void Pacts</b> offer unlimited power, and each one raises the <b>Heat</b>: more enemies, tougher and faster.</p></section>
       <section><h3>Last the run</h3>
       <p>Bosses arrive at 5:00, 10:00 and 15:00. From 8:00, <b>Void Rot</b> weakens healing. Every run earns void shards to spend in the Hangar on permanent upgrades and new ships.</p></section>
+      <section><h3>Campaign and rewards</h3>
+      <p>The <b>Campaign</b> is 15 short sectors, each with a twist. Clear one to open the next, and earn up to three stars for its goals. Every run, won or lost, earns <b>rank XP</b>: each new rank gives a reward, from shards to ship paints and perks. Finish <b>contracts</b> for extra shards, and your first run each day earns double XP.</p></section>
       <section><h3>Co-op</h3>
       <p><span class="desk-only">Player 2 flies with the arrow keys and dashes with <b>Enter</b>, or uses a second controller.</span><span class="touch-only">Player 1 uses the left half of the screen and player 2 the right half.</span> A downed pilot comes back on a timer, or straight away when you level up.</p></section>
       <p class="desk-only"><span class="kbd">Esc</span> pause &nbsp; <span class="kbd">M</span> mute<span class="desk-app-only"> &nbsp; <span class="kbd">F11</span> fullscreen</span></p>
@@ -192,6 +228,7 @@
 <script src="js/audio.js"></script>
 <script src="js/beat.js"></script>
 <script src="js/data.js"></script>
+<script src="js/progress.js"></script>
 <script src="js/game.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>

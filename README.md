@@ -10,6 +10,8 @@ A neon survivors-like for the browser and desktop. Pick a ship, drop into an are
 
 ## Features
 
+- **Campaign** — 15 short sectors across the three arenas, each with a twist (swarm, haste, elite rush, glass, famine, tide) and three stars to earn
+- **Pilot Rank, Contracts and paints** — every run earns rank XP with a reward at every rank (shards, perks, ships, ship paints); three rotating contracts pay out shards; first run of the day earns double XP
 - **BEAT SYNC** — the soundtrack is the game clock. Dash **on the beat** for a PERFECT (invulnerable, slashes everything in your path), chain PERFECTs to climb Groove ×2 → ×3 → ×4 → **OVERDRIVE**, and the synth score builds with you. Every bar, a shockwave pulses from your ship.
 
 - **Void Pacts & HEAT** — once your build is maxed, level-ups offer uncapped power… and every pact cranks up the swarm
@@ -47,6 +49,7 @@ web/                 the game itself (plain HTML/CSS/JS, no build step)
   js/audio.js        synthesized SFX + adaptive music
   js/beat.js         Beat Sync: beat clock, Beat Dash, Groove/Overdrive
   js/data.js         all balance tables — tune the game here
+  js/progress.js     campaign sectors, pilot rank rewards, contracts, end-of-run payout
   js/game.js         core simulation + world rendering
   js/ui.js           overlays, HUD, procedural icons
   js/main.js         boot, input, game loop, saves

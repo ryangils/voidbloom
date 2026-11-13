@@ -93,6 +93,7 @@ const BeatSys = {
 
   tierUp(g, p) {
     g.maxTier = Math.max(g.maxTier, p.tier);
+    if (p.tier === 4) g.overdrives = (g.overdrives || 0) + 1;
     const c = BEAT.COLORS[p.tier];
     UI.announce(BEAT.NAMES[p.tier], p.tier === 4 ? 'the void sings' : '+' + Math.round(BEAT.DMG[p.tier] * 100) + '% damage', c, 1.3);
     g.spawnRing(p.x, p.y, 180 + p.tier * 40, c);
