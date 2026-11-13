@@ -1,9 +1,10 @@
-// VOIDBLOOM desktop shell: loads the web build in a fullscreen-capable window.
-const { app, BrowserWindow, Menu } = require('electron');
+// VOIDBLOOM desktop shell: loads the web build and keeps itself up to date.
+const { app, BrowserWindow, Menu, dialog } = require('electron');
 const path = require('path');
 
+let win;
 function createWindow() {
-  const win = new BrowserWindow({
+  win = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 800,
@@ -23,5 +24,28 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+// ---- auto-update from GitHub Releases (installed copies only, not the portable .exe) ----
+function setupUpdates() {
+  if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR) return;
+  let autoUpdater;
+  try { ({ autoUpdater } = require('electron-updater')); } catch (e) { return; }
+  autoUpdater.autoDownload = true;              // fetch quietly in the background
+  autoUpdater.autoInstallOnAppQuit = true;      // if you say "later", it installs when you quit
+  autoUpdater.on('update-downloaded', async info => {
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'info',
+      title: 'VOIDBLOOM update',
+      message: `VOIDBLOOM ${info.version} is ready to install.`,
+      detail: 'Restart now to update? Your progress is kept. If you choose Later, it installs when you close the game.',
+      buttons: ['Restart now', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    if (response === 0) autoUpdater.quitAndInstall();
+  });
+  autoUpdater.on('error', () => { /* offline or GitHub unreachable: just play the current version */ });
+  autoUpdater.checkForUpdates().catch(() => {});
+}
+
+app.whenReady().then(() => { createWindow(); setupUpdates(); });
 app.on('window-all-closed', () => app.quit());

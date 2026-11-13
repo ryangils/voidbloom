@@ -1,7 +1,7 @@
 {
   "name": "voidbloom",
   "productName": "VOIDBLOOM",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "A neon survivors-like: solo or co-op, 5 ships, 3 arenas, 11 evolving weapons.",
   "main": "electron/main.js",
   "author": "Richard Gils",
@@ -20,13 +20,58 @@
   "build": {
     "appId": "com.voidbloom.game",
     "productName": "VOIDBLOOM",
-    "files": ["electron/**", "web/**", "package.json"],
-    "directories": { "output": "dist", "buildResources": "build" },
-    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }], "icon": "build/icon.png" },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "artifactName": "VOIDBLOOM-Setup-${version}.exe" },
-    "portable": { "artifactName": "VOIDBLOOM-Portable-${version}.exe" },
-    "mac": { "target": "dmg", "icon": "build/icon.png" },
-    "linux": { "target": "AppImage", "icon": "build/icon.png" },
-    "publish": null
+    "files": [
+      "electron/**",
+      "web/**",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "VOIDBLOOM-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "VOIDBLOOM-Portable-${version}.exe"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "build/icon.png"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ryangils",
+        "repo": "voidbloom",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
   }
 }
