@@ -1708,7 +1708,7 @@ const G = {
   shake(amt) { this.cam.shake = Math.min(1, this.cam.shake + amt * OPTS.shake); },
 
   emitPart(x, y, vx, vy, color, size, life) {
-    if (this.parts.length > 800) return;
+    if (this.parts.length > Quality.partCap[Quality.level]) return;
     const p = this.pools.part.alloc();
     p.x = x; p.y = y; p.vx = vx; p.vy = vy;
     p.color = color; p.size = size; p.life = life; p.maxLife = life;
@@ -1716,6 +1716,7 @@ const G = {
   },
 
   emitBurst(x, y, color, n, speed, size, life) {
+    n = Math.ceil(n * Quality.burstMul[Quality.level]);
     for (let i = 0; i < n; i++) {
       const a = U.rand(0, TAU), sp = U.rand(speed * 0.3, speed);
       this.emitPart(x, y, Math.cos(a) * sp, Math.sin(a) * sp, color,
@@ -2254,7 +2255,7 @@ const G = {
         this._stars.push({ par, pts });
       }
     }
-    this.renderNebula(ctx, w, h, camX, camY, az);
+    if (Quality.nebula) this.renderNebula(ctx, w, h, camX, camY, az);
     // faint world grid
     const gs = 130;
     ctx.strokeStyle = az.grid;

@@ -101,6 +101,7 @@ const UI = {
       el.onclick = () => {
         OPTS[el.parentNode.dataset.opt] = parseFloat(el.dataset.v);
         if (el.parentNode.dataset.opt === 'glow') App.glowChecked = true;   // the player chose: don't second-guess it
+        if (el.parentNode.dataset.opt === 'quality') Quality.apply();
         App.saveSettings();
         AudioSys.play('ui');
         this.syncSettings();
@@ -833,7 +834,7 @@ const UI = {
     ctx.textAlign = 'center';
     ctx.font = 'bold 30px ' + FONT;
     ctx.fillStyle = '#eaf4ff';
-    ctx.shadowColor = '#4ef3ff'; ctx.shadowBlur = 10;
+    if (Quality.shadows) { ctx.shadowColor = '#4ef3ff'; ctx.shadowBlur = 10; }
     ctx.fillText(U.fmtTime(G.time), w / 2, 34);
     ctx.shadowBlur = 0;
     if (G.mode === 'endless') {
@@ -863,7 +864,7 @@ const UI = {
       ctx.textAlign = 'center';
       ctx.font = 'bold 13px ' + FONT;
       ctx.fillStyle = b.def.color;
-      ctx.shadowColor = b.def.color; ctx.shadowBlur = 8;
+      if (Quality.shadows) { ctx.shadowColor = b.def.color; ctx.shadowBlur = 8; }
       ctx.fillText(b.def.name, w / 2, by - 2);
       ctx.shadowBlur = 0;
       ctx.fillStyle = 'rgba(8,12,28,0.75)';

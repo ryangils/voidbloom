@@ -12,6 +12,53 @@ const OPTS = {
   shake: 1,                   // screen-shake strength 0..1
   flashes: (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ? 0 : 1,
   dmgNums: 1,
+  quality: -1,                // -1 = automatic, 0 = high, 1 = medium, 2 = low
+};
+
+// ---------------------------------------------------------------------------
+// QUALITY: how much the renderer spends per frame. In automatic mode it starts
+// lower on phones and steps down by itself if frames take too long.
+//   0 high   : full resolution (up to 1.75x), nebula, glow allowed, shadows
+//   1 medium : resolution up to 1.25x, nebula, no shadows
+//   2 low    : resolution 1x, no nebula, fewer particles
+//   3 lowest : resolution 0.75x (upscaled), no nebula, far fewer particles
+// ---------------------------------------------------------------------------
+const Quality = {
+  level: IS_TOUCH ? 1 : 0,
+  dprCap: [1.75, 1.25, 1, 0.75],
+  partCap: [800, 600, 350, 200],
+  burstMul: [1, 1, 0.6, 0.4],
+  slow: 0, fast: 0, settled: false,
+  get dpr() { return Math.min(window.devicePixelRatio || 1, this.dprCap[this.level]); },
+  get nebula() { return this.level <= 1; },
+  get shadows() { return this.level === 0; },
+  get glowOk() { return this.level === 0 && OPTS.glow; },
+  set(lv) {
+    lv = Math.max(0, Math.min(3, lv));
+    if (lv === this.level) return false;
+    this.level = lv; this.slow = this.fast = 0;
+    if (typeof resize === 'function') resize();
+    return true;
+  },
+  // fixed choice from Settings
+  apply() {
+    if (OPTS.quality >= 0) this.set(OPTS.quality);
+    else this.set(IS_TOUCH ? 1 : 0);
+    this.settled = false;
+  },
+  // called every frame while a run is playing
+  watch(dt) {
+    if (OPTS.quality >= 0 || dt <= 0 || dt > 0.25) return;   // manual, or a hiccup (tab switch)
+    if (dt > 1 / 45) { this.slow += dt; this.fast = 0; }
+    else { this.fast += dt; this.slow = Math.max(0, this.slow - dt * 0.5); }
+    if (this.slow > 1.5 && this.level < 3) {          // ~1.5s of frames under 45fps: step down
+      this.set(this.level + 1);
+      if (this.level >= 2 && OPTS.glow) OPTS.glow = 0;
+    } else if (this.fast > 20 && !this.settled && this.level > (IS_TOUCH ? 1 : 0)) {
+      this.settled = true;                            // smooth for a long while: try one step back up
+      this.set(this.level - 1);
+    }
+  },
 };
 
 const U = {

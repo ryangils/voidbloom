@@ -32,6 +32,7 @@ const App = {
     if (!this.save.stats) this.save.stats = { runs: 0, kills: 0, wins: 0, shardsEarned: 0, bestLevel: 0 };
     if (this.save.vols) Object.assign(AudioSys.vols, this.save.vols);
     if (this.save.opts) for (const k in OPTS) if (typeof this.save.opts[k] === 'number') OPTS[k] = this.save.opts[k];
+    Quality.apply();
   },
 
   shipUnlocked(ch) { return !ch.cost || !!this.save.ships[ch.id]; },
@@ -396,7 +397,7 @@ const ctx2d = canvas.getContext('2d');
 let viewW = 0, viewH = 0, dpr = 1;
 
 function resize() {
-  dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+  dpr = Quality.dpr;
   // the canvas is inset by CSS safe-area padding on notched phones
   const r = canvas.getBoundingClientRect();
   viewW = Math.round(r.width) || window.innerWidth; viewH = Math.round(r.height) || window.innerHeight;
@@ -460,6 +461,7 @@ function frame(now) {
   }
   if (n === 5) acc = 0;
 
+  if (G.state === 'run' || G.state === 'levelup' || G.state === 'pause') Quality.watch(dt);
   // if the game is struggling with glow on, turn glow off once and say so
   if (OPTS.glow && !App.glowChecked && G.state === 'run') {
     App.slowT = dt > 0.026 ? (App.slowT || 0) + dt : Math.max(0, (App.slowT || 0) - dt * 2);
@@ -472,7 +474,7 @@ function frame(now) {
 
   ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
   G.render(ctx2d, viewW, viewH);
-  Glow.apply(ctx2d, canvas);          // before the HUD, so text stays crisp
+  if (Quality.glowOk) Glow.apply(ctx2d, canvas);          // before the HUD, so text stays crisp
   // the HUD grows with the screen so it reads the same on a laptop and a big monitor
   const hs = IS_TOUCH ? 1 : U.clamp(Math.min(viewW / 1280, viewH / 720), 1, 2);
   ctx2d.setTransform(dpr * hs, 0, 0, dpr * hs, 0, 0);
