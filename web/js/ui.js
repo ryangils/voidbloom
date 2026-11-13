@@ -526,6 +526,11 @@ const UI = {
         const b = BOONS[c.id];
         return { icon: b.icon, name: b.name, color: '#b06bff', tag: 'EPIC BOON', tagCls: 'evo', desc: b.desc, pips: false };
       }
+      case 'pact': {
+        const d = PACTS[c.id];
+        return { icon: d.icon, name: d.name, color: d.color, tag: 'VOID PACT', tagCls: 'heal',
+          desc: d.gain + '. <b style="color:#ff5252">+1 HEAT</b>: more enemies, faster and tougher.', pips: false };
+      }
     }
   },
 
@@ -737,6 +742,11 @@ const UI = {
     ctx.fillText(G.kills.toLocaleString() + ' ✦', rx, 24);
     ctx.fillStyle = '#4ef3ff';
     ctx.fillText('LV ' + G.level, rx, 46);
+    if (G.heat) { ctx.fillStyle = '#ff5252'; ctx.font = 'bold 13px Segoe UI'; ctx.fillText('🔥 HEAT ' + G.heat, rx, 66); }
+    if (G.healMult && G.healMult() < 0.99) {
+      ctx.fillStyle = '#b06bff'; ctx.font = 'bold 11px Segoe UI';
+      ctx.fillText('VOID ROT −' + Math.round((1 - G.healMult()) * 100) + '% healing', rx, G.heat ? 84 : 66);
+    }
 
     // --- boss bar ---
     const b = G.boss;

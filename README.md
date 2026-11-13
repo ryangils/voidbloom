@@ -12,6 +12,8 @@ A neon survivors-like for the browser and desktop. Pick a ship, drop into an are
 
 - **BEAT SYNC** — the soundtrack is the game clock. Dash **on the beat** for a PERFECT (invulnerable, slashes everything in your path), chain PERFECTs to climb Groove ×2 → ×3 → ×4 → **OVERDRIVE**, and the synth score builds with you. Every bar, a shockwave pulses from your ship.
 
+- **Void Pacts & HEAT** — once your build is maxed, level-ups offer uncapped power… and every pact cranks up the swarm
+- **Void Rot** — after 8:00 healing weakens, so late-game sustain can't trivialize the swarm
 - **Solo or local co-op** — two pilots, one screen
 - **5 ships** — Vanguard, Tempest, Bastion, plus unlockable Revenant and Wraith
 - **3 arenas** — The Drift, Reactor Core, Void Garden — and a Nightmare mode

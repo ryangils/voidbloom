@@ -242,6 +242,34 @@ const ENEMIES = {
 };
 
 // difficulty scaling over run time t (seconds)
+// ---------------------------------------------------------------------------
+// VOID PACTS — offered once the normal upgrade pool runs dry (and late-game).
+// Real power with no stack limit, but every pact adds +1 HEAT to the run.
+// ---------------------------------------------------------------------------
+const PACTS = {
+  fury:   { name: 'Pact of Fury',      icon: 'p_amp',       color: '#ff4ecd', gain: '+20% damage' },
+  frenzy: { name: 'Pact of Frenzy',    icon: 'p_accel',     color: '#4ef3ff', gain: '+12% fire rate' },
+  ruin:   { name: 'Pact of Ruin',      icon: 'p_wrath',     color: '#ff9d4e', gain: '+5% crit chance, +30% crit damage' },
+  titan:  { name: 'Pact of the Titan', icon: 'p_plating',   color: '#ffd34e', gain: '+50 max hull, fully repaired' },
+  comet:  { name: 'Pact of the Comet', icon: 'p_thrusters', color: '#b06bff', gain: '+10% move speed' },
+};
+// what each point of HEAT does to the swarm
+const HEAT = {
+  spawnRate: 0.15,   // spawns come 15% faster per heat
+  batchEvery: 2,     // +1 enemy per spawn wave every 2 heat
+  hp: 0.08,          // +8% enemy hull per heat
+  dmg: 0.05,         // +5% enemy damage per heat
+  elite: 0.1,        // elites 10% more often per heat
+};
+// sustain limits: keep late-game healing from outscaling the swarm
+const SUSTAIN = {
+  leechPerSec: 0.03, // lifesteal can heal at most 3% max hull per second
+  armorMaxBlock: 0.6,// armor blocks at most 60% of any hit
+  rotStart: 480,     // VOID ROT begins at 8:00 ...
+  rotFull: 900,      // ... and reaches full strength at 15:00
+  rotMax: 0.6,       // healing (regen + lifesteal) reduced by up to 60%
+};
+
 const DIFF = {
   hpMult(t)  { const m = t / 60; return 1 + m * 0.22 + m * m * 0.09; },
   dmgMult(t) { return 1 + Math.min(t / 300, 3) * 0.35; },
@@ -338,6 +366,7 @@ const ACHIEVEMENTS = [
   { id: 'nightwin',  name: 'Lucid',            shards: 75, desc: 'win a Nightmare run',             check: (g, won) => won && g.nightmare },
   { id: 'onbeat',    name: 'On Beat',          shards: 20, desc: '50 PERFECT dashes in one run',    check: g => g.perfects >= 50 },
   { id: 'overdrive', name: 'Overdrive',        shards: 30, desc: 'reach OVERDRIVE',                 check: g => g.maxTier >= 4 },
+  { id: 'inferno',   name: 'Inferno',          shards: 40, desc: 'reach HEAT 10 with Void Pacts',   check: g => (g.heat || 0) >= 10 },
   { id: 'endless20', name: 'Beyond the Bloom', shards: 30, desc: 'survive to 20:00',                check: g => g.time >= 1200 },
 ];
 

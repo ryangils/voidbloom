@@ -398,7 +398,7 @@ function frame(now) {
   lastT = now;
   acc += dt;
   Input.poll();
-  document.body.classList.toggle('in-run', G.state === 'run' || G.state === 'pause');
+  document.body.classList.toggle('in-run', G.state === 'run' || G.state === 'pause' || G.state === 'levelup');
   let n = 0;
   while (acc >= STEP && n < 5) {
     for (let i = 0; i < App.debugSpeed; i++) G.step(STEP);

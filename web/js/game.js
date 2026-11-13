@@ -115,6 +115,7 @@ const G = {
     });
 
     BeatSys.initRun(this);
+    this.heat = 0; this.rotWarned = false;
 
     // opening wave so the first seconds aren't dead air
     this.defer(2.5, () => {
@@ -137,15 +138,15 @@ const G = {
     const oldMax = pl.maxHp;
     pl.maxHp = PLAYER_BASE.hp + (m.hp || 0) + lv('plating') * 25 + hgLv('hull') * 10 + (pl.bonusHp || 0);
     if (oldMax && pl.maxHp > oldMax) pl.hp += (pl.maxHp - oldMax);
-    pl.speed = PLAYER_BASE.speed * (m.speed || 1) * (1 + lv('thrusters') * 0.08) * (1 + hgLv('speed') * 0.02);
+    pl.speed = PLAYER_BASE.speed * (m.speed || 1) * (1 + lv('thrusters') * 0.08) * (1 + hgLv('speed') * 0.02) * (1 + (pl.bonusSpeed || 0));
     pl.armor = (m.armor || 0) + lv('shield') * 2 + hgLv('armor');
     pl.regen = lv('nanobots') * 0.6 + hgLv('regen') * 0.2;
     // inherent +6% damage per shared level keeps leveling meaningful all run
     pl.dmgMult = (1 + lv('amp') * 0.12 + hgLv('damage') * 0.04 + (pl.bonusDmg || 0) + (m.dmg || 0)) *
-      (1 + (this.level - 1) * 0.06);
-    pl.rateMult = (m.rate || 1) * (1 + lv('accel') * 0.10);
-    pl.critChance = PLAYER_BASE.critChance + lv('targeting') * 0.06 + hgLv('luck') * 0.02;
-    pl.critMult = PLAYER_BASE.critMult + lv('wrath') * 0.25;
+      (1 + (this.level - 1) * 0.06) * (1 + (pl.pactDmg || 0));
+    pl.rateMult = (m.rate || 1) * (1 + lv('accel') * 0.10) * (1 + (pl.bonusRate || 0));
+    pl.critChance = PLAYER_BASE.critChance + lv('targeting') * 0.06 + hgLv('luck') * 0.02 + (pl.bonusCrit || 0);
+    pl.critMult = PLAYER_BASE.critMult + lv('wrath') * 0.25 + (pl.bonusCritMult || 0);
     pl.pickupR = PLAYER_BASE.pickupR * (1 + lv('attractor') * 0.30) * (1 + hgLv('magnet') * 0.10);
     pl.evasion = lv('evasion') * 0.04;
     pl.siphon = lv('siphon') * 0.002 + (m.siphon || 0);
@@ -230,7 +231,18 @@ const G = {
       for (let i = 0; i < pool.length; i++) { r -= pool[i].w; if (r <= 0) { idx = i; break; } }
       picks.push(pool[idx]); pool.splice(idx, 1);
     }
-    while (picks.length < 3) picks.push({ kind: 'heal' });
+    // pool running dry → Void Pacts (power for HEAT); keep a repair option if nothing else is left
+    const pactIds = Object.keys(PACTS);
+    const pactOk = this.level >= 12 || pool.length === 0;
+    while (picks.length < 3) {
+      const used = picks.filter(c => c.kind === 'pact').map(c => c.id);
+      const free = pactIds.filter(id => !used.includes(id));
+      if (pactOk && free.length && !(picks.length === 2 && picks.every(c => c.kind === 'pact'))) picks.push({ kind: 'pact', id: U.pick(free) });
+      else picks.push({ kind: 'heal' });
+    }
+    // late game: one slot may be a pact even while normal upgrades remain
+    if (this.level >= 25 && !picks.some(c => c.kind === 'pact') && U.chance(0.35))
+      picks[picks.length - 1] = { kind: 'pact', id: U.pick(pactIds) };
 
     // rarity: upgrades can roll RARE (double level in one pick)
     for (const c of picks) {
@@ -304,7 +316,41 @@ const G = {
         AudioSys.play('heart');
         break;
       case 'epic': this.applyBoon(pl, c.id); break;
+      case 'pact': this.applyPact(pl, c.id); break;
     }
+  },
+
+  applyPact(pl, id) {
+    switch (id) {
+      case 'fury':   pl.pactDmg = (pl.pactDmg || 0) + 0.20; break;
+      case 'frenzy': pl.bonusRate = (pl.bonusRate || 0) + 0.12; break;
+      case 'ruin':   pl.bonusCrit = (pl.bonusCrit || 0) + 0.05; pl.bonusCritMult = (pl.bonusCritMult || 0) + 0.30; break;
+      case 'titan':  pl.bonusHp = (pl.bonusHp || 0) + 50; break;
+      case 'comet':  pl.bonusSpeed = (pl.bonusSpeed || 0) + 0.10; break;
+    }
+    this.recalcStats(pl);
+    if (id === 'titan') pl.hp = pl.maxHp;
+    for (const w of pl.weapons) this.computeWStats(pl, w);
+    this.heat = (this.heat || 0) + 1;
+    AudioSys.play('evolve');
+    this.shake(0.3);
+    this.emitBurst(pl.x, pl.y, '#ff5252', 40, 320, 8, 0.8);
+    UI.announce(PACTS[id].name.toUpperCase(), PACTS[id].gain + '  ·  HEAT ' + this.heat, '#ff5252', 2.2);
+  },
+
+  // VOID ROT: late-run healing weakens so sustain can't outscale the swarm
+  healMult() {
+    const t = this.mode === 'endless' ? 900 : this.time;
+    if (t <= SUSTAIN.rotStart) return 1;
+    return 1 - SUSTAIN.rotMax * Math.min(1, (t - SUSTAIN.rotStart) / (SUSTAIN.rotFull - SUSTAIN.rotStart));
+  },
+  // lifesteal draws from a small per-second budget
+  leech(p, amt) {
+    if (amt <= 0 || p.down) return;
+    const take = Math.min(amt * this.healMult(), p.leechPool || 0);
+    if (take <= 0) return;
+    p.leechPool -= take;
+    p.hp = Math.min(p.maxHp, p.hp + take);
   },
 
   applyBoon(pl, id) {
@@ -375,12 +421,13 @@ const G = {
     const def = ENEMIES[type];
     const t = this.effTime();
     const nm = this.nightmare ? NIGHTMARE : null;
-    const hpM = DIFF.hpMult(t) * (elite ? DIFF.eliteHp : 1) * this.coopHpMult() * (nm ? nm.hp : 1);
+    const heat = this.heat || 0;
+    const hpM = DIFF.hpMult(t) * (elite ? DIFF.eliteHp : 1) * this.coopHpMult() * (nm ? nm.hp : 1) * (1 + HEAT.hp * heat);
     const e = {
       type, def, x, y, vx: 0, vy: 0,
       r: def.r * (elite ? DIFF.eliteSize : 1),
       hp: def.hp * hpM, maxHp: def.hp * hpM,
-      dmg: def.dmg * DIFF.dmgMult(t) * (nm ? nm.dmg : 1),
+      dmg: def.dmg * DIFF.dmgMult(t) * (nm ? nm.dmg : 1) * (1 + HEAT.dmg * heat),
       spd: def.spd * DIFF.spdMult(t) * U.rand(0.92, 1.08) * (1 + 0.03 * this.curseTotal()) * (nm ? nm.spd : 1),
       elite, flash: 0, atkCd: U.rand(0, 0.3), slow: 1, slowT: 0,
       kx: 0, ky: 0, orbCd: 0, auraCd: 0, scyCd: 0, marked: 0,
@@ -416,8 +463,9 @@ const G = {
     const speedup = this.mode === 'endless' ? Math.max(0.45, 1 - S.endlessT / 600 * 0.4) : 1;
     const bossFactor = this.boss && !this.boss.dead ? 1.5 : 1;
     if (S.timer <= 0) {
-      S.timer = phase.interval * speedup * bossFactor / (1 + 0.1 * this.curseTotal());
-      const batch = phase.batch + (this.coop ? 1 : 0) +
+      const heat = this.heat || 0;
+      S.timer = phase.interval * speedup * bossFactor / (1 + 0.1 * this.curseTotal()) / (1 + HEAT.spawnRate * heat);
+      const batch = phase.batch + (this.coop ? 1 : 0) + Math.floor(heat / HEAT.batchEvery) +
         (this.mode === 'endless' ? Math.floor(S.endlessT / 120) : 0);
       const types = Object.keys(phase.types);
       const weights = types.map(k => phase.types[k]);
@@ -458,7 +506,7 @@ const G = {
     if (this.time >= DIFF.eliteStart) {
       S.eliteTimer -= dt;
       if (S.eliteTimer <= 0) {
-        S.eliteTimer = DIFF.eliteEvery;
+        S.eliteTimer = DIFF.eliteEvery / (1 + HEAT.elite * (this.heat || 0));
         const phaseTypes = Object.keys(phase.types).filter(t => t !== 'mote' && t !== 'dart');
         const type = phaseTypes.length ? U.pick(phaseTypes) : 'mote';
         const pos = this.spawnPos();
@@ -497,7 +545,7 @@ const G = {
     e.flash = 0.1;
     this.dmgDealt += dmg;
     if (opts.src) this.dmgBy[opts.src] = (this.dmgBy[opts.src] || 0) + dmg;
-    if (p.siphon > 0 && !p.down) p.hp = Math.min(p.maxHp, p.hp + dmg * p.siphon);
+    if (p.siphon > 0) this.leech(p, dmg * p.siphon);
     if (opts.knock && e.mass < 4) {
       const kb = opts.knock / e.mass;
       e.kx += Math.cos(opts.kAng) * kb; e.ky += Math.sin(opts.kAng) * kb;
@@ -574,7 +622,7 @@ const G = {
       pl.iframes = 0.2;
       return;
     }
-    const dmg = Math.max(1, rawDmg - pl.armor);
+    const dmg = Math.max(1, rawDmg - pl.armor, rawDmg * (1 - SUSTAIN.armorMaxBlock));
     pl.hp -= dmg;
     if (this.firstHitAt === Infinity) this.firstHitAt = this.time;
     pl.iframes = 0.35; pl.hurtT = 0.3;
@@ -1514,7 +1562,7 @@ const G = {
     b.hp -= dmg; b.flash = 0.08;
     this.dmgDealt += dmg;
     if (src) this.dmgBy[src] = (this.dmgBy[src] || 0) + dmg;
-    if (p.siphon > 0 && !p.down) p.hp = Math.min(p.maxHp, p.hp + dmg * p.siphon);
+    if (p.siphon > 0) this.leech(p, dmg * p.siphon);
     if (!noNum && Math.random() < 0.6) this.spawnDnum(b.x + U.rand(-20, 20), b.y - b.r, dmg, crit);
     if (b.hp <= 0) this.killBoss();
   },
@@ -1773,7 +1821,8 @@ const G = {
       p.x += p.vx * dt; p.y += p.vy * dt;
       if (p.iframes > 0) p.iframes -= dt;
       if (p.hurtT > 0) p.hurtT -= dt;
-      if (p.regen > 0) p.hp = Math.min(p.maxHp, p.hp + p.regen * dt);
+      if (p.regen > 0) p.hp = Math.min(p.maxHp, p.hp + p.regen * this.healMult() * dt);
+      p.leechPool = Math.min(p.maxHp * SUSTAIN.leechPerSec, (p.leechPool || 0) + p.maxHp * SUSTAIN.leechPerSec * dt);
 
       // engine trail
       p.trailT -= dt;
@@ -1787,6 +1836,11 @@ const G = {
     }
 
     BeatSys.update(this, dt);
+    if (!this.rotWarned && this.time >= SUSTAIN.rotStart && this.mode !== 'endless') {
+      this.rotWarned = true;
+      UI.announce('VOID ROT', 'healing weakens from here on', '#b06bff', 2.4);
+      AudioSys.play('warn');
+    }
 
     // shared-screen tether: partners can't split beyond the view
     if (this.players.length === 2) {
