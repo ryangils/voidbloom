@@ -12,8 +12,39 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
+
+      - name: Check the in-game version matches package.json
+        shell: bash
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          GAME=$(node -e "const s=require('fs').readFileSync('web/js/version.js','utf8'); console.log(s.match(/GAME_VERSION = '([^']+)'/)[1])")
+          echo "package.json $PKG / version.js $GAME"
+          test "$PKG" = "$GAME"
+
       - run: npm install
       - run: npx electron-builder --win --publish never
+
+      # Start the real packaged game, confirm it boots, then exit. A broken build fails here
+      # instead of reaching players through auto-update.
+      - name: Smoke test the packaged game
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist\win-unpacked\VOIDBLOOM.exe" -ArgumentList "--smoke-test" -Wait -PassThru -RedirectStandardOutput smoke-out.txt -RedirectStandardError smoke-err.txt
+          Get-Content smoke-out.txt
+          Get-Content smoke-err.txt | Select-String "SMOKE"
+          if ($p.ExitCode -ne 0) { Write-Error "Smoke test failed with exit code $($p.ExitCode)"; exit 1 }
+
+      # Store builds: the same game without the GitHub auto-updater (stores update their own copies),
+      # plus the browser version zipped the way itch.io expects (index.html at the top).
+      - name: Package store builds
+        shell: pwsh
+        run: |
+          $v = node -p "require('./package.json').version"
+          Copy-Item dist\win-unpacked dist\store-win -Recurse
+          Remove-Item dist\store-win\resources\app-update.yml -ErrorAction SilentlyContinue
+          Compress-Archive -Path dist\store-win\* -DestinationPath "dist\VOIDBLOOM-$v-windows-store.zip"
+          Compress-Archive -Path web\* -DestinationPath "dist\VOIDBLOOM-$v-web.zip"
+
       - uses: actions/upload-artifact@v4
         with:
           name: VOIDBLOOM-windows
@@ -21,6 +52,7 @@ jobs:
             dist/*.exe
             dist/*.blockmap
             dist/latest.yml
+            dist/*.zip
       - if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
@@ -29,3 +61,4 @@ jobs:
             dist/*.exe
             dist/*.blockmap
             dist/latest.yml
+            dist/*.zip

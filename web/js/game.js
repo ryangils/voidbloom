@@ -1705,7 +1705,7 @@ const G = {
   // =========================================================================
   // FX
   // =========================================================================
-  shake(amt) { this.cam.shake = Math.min(1, this.cam.shake + amt); },
+  shake(amt) { this.cam.shake = Math.min(1, this.cam.shake + amt * OPTS.shake); },
 
   emitPart(x, y, vx, vy, color, size, life) {
     if (this.parts.length > 800) return;
@@ -1729,6 +1729,7 @@ const G = {
 
   spawnDnum(x, y, val, crit, color, prefix) {
     if (this.dnums.length > 110) return;
+    if (!OPTS.dmgNums && val !== '') return;   // labels like PERFECT still show
     const d = this.pools.dnum.alloc();
     d.x = x; d.y = y; d.vy = -55; d.val = val === '' ? '' : Math.round(val);
     d.crit = crit; d.life = crit ? 0.85 : 0.6; d.maxLife = d.life;
@@ -1920,7 +1921,7 @@ const G = {
     Sprites.setCam(ctx, (canvas.width / w) || 1, camX, camY);
 
     const p = this.player;
-    if (!p) { ctx.restore(); return; }   // title screen: background only
+    if (!p) { ctx.restore(); this.renderEmblem(ctx, w, h); return; }   // title screen: backdrop + emblem
 
     // hazard clouds (plasma burns / spore drifts)
     const spore = az.hazard && az.hazard.kind === 'spore';
@@ -2048,7 +2049,7 @@ const G = {
           Sprites.draw(ctx, CHARS[pl.charId].ship, pl.x, pl.y, pl.faceAng, 1.1);
           ctx.globalAlpha = 1;
           ctx.textAlign = 'center';
-          ctx.font = 'bold 13px Segoe UI';
+          ctx.font = 'bold 13px ' + FONT;
           ctx.fillStyle = '#ff8c8c';
           ctx.fillText(Math.ceil(pl.downT), pl.x, pl.y - 24);
           continue;
@@ -2057,7 +2058,7 @@ const G = {
         if (!blink) Sprites.draw(ctx, CHARS[pl.charId].ship, pl.x, pl.y, pl.faceAng, 1.1);
         if (this.coop) {
           ctx.textAlign = 'center';
-          ctx.font = 'bold 10px Segoe UI';
+          ctx.font = 'bold 10px ' + FONT;
           ctx.fillStyle = CHARS[pl.charId].color;
           ctx.globalAlpha = 0.85;
           ctx.fillText('P' + (pl.idx + 1), pl.x, pl.y - 22);
@@ -2143,14 +2144,14 @@ const G = {
 
     // damage numbers (two passes so the font only changes once)
     ctx.textAlign = 'center';
-    ctx.font = 'bold 12px Segoe UI';
+    ctx.font = 'bold 12px ' + FONT;
     for (const d of this.dnums) {
       if (d.crit) continue;
       ctx.globalAlpha = Math.min(1, d.life / d.maxLife * 2);
       ctx.fillStyle = d.color;
       ctx.fillText(d.prefix + d.val, d.x, d.y);
     }
-    ctx.font = 'bold 17px Segoe UI';
+    ctx.font = 'bold 17px ' + FONT;
     for (const d of this.dnums) {
       if (!d.crit) continue;
       ctx.globalAlpha = Math.min(1, d.life / d.maxLife * 2);
@@ -2159,6 +2160,83 @@ const G = {
     }
     ctx.globalAlpha = 1;
 
+    ctx.restore();
+  },
+
+  // soft colour clouds far behind the arena: one seamless tile per arena, drawn with slow parallax
+  _nebTiles: {},
+  renderNebula(ctx, w, h, camX, camY, az) {
+    let tile = this._nebTiles[az.id];
+    if (!tile) {
+      const S = 512;
+      tile = document.createElement('canvas');
+      tile.width = tile.height = S;
+      const g = tile.getContext('2d');
+      let seed = 97 + az.id * 131;
+      const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+      for (let i = 0; i < 16; i++) {
+        const x = rnd() * S, y = rnd() * S, r = 70 + rnd() * 150;
+        const col = az.neb[i % az.neb.length], a = 0.16 + rnd() * 0.2;
+        // draw each cloud at the wrapped positions too, so the tile repeats without seams
+        for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) {
+          if (x + ox + r < 0 || x + ox - r > S || y + oy + r < 0 || y + oy - r > S) continue;
+          const gr = g.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r);
+          gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(0,0,0,0)');
+          g.globalAlpha = a; g.fillStyle = gr;
+          g.fillRect(x + ox - r, y + oy - r, r * 2, r * 2);
+        }
+      }
+      this._nebTiles[az.id] = tile;
+    }
+    const T = 1536, par = 0.12;      // tile drawn 3x so the clouds stay soft
+    let ox = -(camX * par) % T; if (ox > 0) ox -= T;
+    let oy = -(camY * par) % T; if (oy > 0) oy -= T;
+    ctx.globalAlpha = 0.55;
+    for (let x = ox; x < w; x += T) for (let y = oy; y < h; y += T) ctx.drawImage(tile, x, y, T, T);
+    ctx.globalAlpha = 1;
+  },
+
+  // Title screen: a vector bloom that opens on every beat of the menu music.
+  renderEmblem(ctx, w, h) {
+    const logo = this._logoEl || (this._logoEl = document.querySelector('#title .logo'));
+    if (!logo || !document.getElementById('title').classList.contains('show')) return;
+    const r = logo.getBoundingClientRect(), cr = canvas.getBoundingClientRect();
+    const cx = r.left + r.width / 2 - cr.left, cy = r.top + r.height / 2 - cr.top;
+    const beat = Beat.now(), ph = beat - Math.floor(beat);
+    const kick = OPTS.flashes ? Math.pow(1 - ph, 3) : 0;          // 1 on the beat, easing to 0
+    const R = Math.min(w * 0.42, 330) * (1 + kick * 0.035);
+    const t = performance.now() / 1000;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineJoin = 'round';
+    const rings = [
+      { n: 8,  rad: R,        col: '#4ef3ff', spin: 0.05,  a: 0.5,  lw: 1.8 },
+      { n: 8,  rad: R * 0.72, col: '#b06bff', spin: -0.08, a: 0.55, lw: 1.7 },
+      { n: 6,  rad: R * 0.46, col: '#ff4ecd', spin: 0.12,  a: 0.6,  lw: 1.6 },
+    ];
+    for (const ring of rings) {
+      ctx.strokeStyle = ring.col; ctx.lineWidth = ring.lw;
+      ctx.globalAlpha = ring.a * (0.7 + kick * 0.5);
+      const rot = t * ring.spin;
+      ctx.beginPath();
+      for (let i = 0; i < ring.n; i++) {
+        const a0 = rot + (i / ring.n) * TAU, half = Math.PI / ring.n;
+        // one petal: out along one side, in along the other
+        const tipX = cx + Math.cos(a0) * ring.rad, tipY = cy + Math.sin(a0) * ring.rad;
+        const lx = cx + Math.cos(a0 - half) * ring.rad * 0.55, ly = cy + Math.sin(a0 - half) * ring.rad * 0.55;
+        const rx = cx + Math.cos(a0 + half) * ring.rad * 0.55, ry = cy + Math.sin(a0 + half) * ring.rad * 0.55;
+        ctx.moveTo(cx, cy);
+        ctx.quadraticCurveTo(lx, ly, tipX, tipY);
+        ctx.quadraticCurveTo(rx, ry, cx, cy);
+      }
+      ctx.stroke();
+    }
+    // the beat itself: a ring that leaves the centre on every beat
+    if (OPTS.flashes) {
+      ctx.strokeStyle = '#ffd34e'; ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.5 * (1 - ph);
+      ctx.beginPath(); ctx.arc(cx, cy, R * (0.2 + ph * 1.05), 0, TAU); ctx.stroke();
+    }
     ctx.restore();
   },
 
@@ -2176,6 +2254,7 @@ const G = {
         this._stars.push({ par, pts });
       }
     }
+    this.renderNebula(ctx, w, h, camX, camY, az);
     // faint world grid
     const gs = 130;
     ctx.strokeStyle = az.grid;

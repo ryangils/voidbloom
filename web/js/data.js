@@ -303,17 +303,20 @@ const ARENAS = [
   {
     id: 0, name: 'THE DRIFT', sub: 'open void · standard survey',
     bg: '#04050c', grid: 'rgba(80,110,190,0.06)', star: '#cdd8ff',
+    accent: '#4ef3ff', neb: ['#16308a', '#4a1a8c', '#0b5a70'],
     gemMult: 1, hazard: null,
   },
   {
     id: 1, name: 'REACTOR CORE', sub: 'plasma storms · +15% crystals',
     bg: '#0a0407', grid: 'rgba(220,90,60,0.07)', star: '#ffd9c2',
+    accent: '#ff9a5c', neb: ['#8a2a10', '#6e1230', '#7a4a08'],
     gemMult: 1.15,
     hazard: { count: 4, radius: 135, dps: 9, drift: 32 },
   },
   {
     id: 2, name: 'VOID GARDEN', sub: 'spore drift · bloomflowers · +25% crystals',
     bg: '#050a08', grid: 'rgba(90,200,140,0.07)', star: '#d2ffe6',
+    accent: '#6dff8a', neb: ['#0e6a44', '#0c4a66', '#3a6a12'],
     gemMult: 1.25,
     hazard: { kind: 'spore', count: 5, radius: 150, slow: 0.55, drift: 26 },
   },

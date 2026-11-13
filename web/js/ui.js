@@ -32,6 +32,20 @@ const UI = {
     $('btn-title2').onclick = () => { AudioSys.play('uiBack'); App.toTitle(); };
 
     $('btn-hangar').onclick = () => { AudioSys.play('ui'); this.showHangar(); };
+    // sub-screens: Settings and How to play open from the title or the pause menu
+    const sub = (btn, name) => { $(btn).onclick = () => { AudioSys.play('ui'); this.openSub(name); }; };
+    sub('btn-settings', 'settings'); sub('btn-pause-settings', 'settings');
+    sub('btn-howto', 'howto'); sub('btn-pause-howto', 'howto');
+    sub('btn-credits', 'credits');
+    for (const id of ['btn-settings-back', 'btn-howto-back', 'btn-credits-back'])
+      $(id).onclick = () => { AudioSys.play('uiBack'); this.closeSub(); };
+    $('btn-erase').onclick = () => this.eraseClick();
+    this.initSettings();
+    $('version-tag').textContent = 'v' + GAME_VERSION;
+    $('credits-version').textContent = 'version ' + GAME_VERSION;
+    const studio = $('credits-studio');
+    if (GAME_STUDIO) studio.innerHTML = 'A game by <b></b>', studio.querySelector('b').textContent = GAME_STUDIO;
+    else studio.remove();
     $('btn-hangar-back').onclick = () => { AudioSys.play('uiBack'); this.hide('hangar'); this.show('title'); this.buildCharCards(); };
     $('btn-reroll').onclick = () => this.doReroll();
     $('btn-banish').onclick = () => this.toggleBanish();
@@ -48,7 +62,96 @@ const UI = {
 
   show(name) { (this.els[name] || document.getElementById(name)).classList.add('show'); },
   hide(name) { (this.els[name] || document.getElementById(name)).classList.remove('show'); },
-  hideAll() { ['title', 'levelup', 'pause', 'gameover', 'victory', 'hangar'].forEach(n => this.hide(n)); },
+  hideAll() {
+    ['title', 'levelup', 'pause', 'gameover', 'victory', 'hangar', 'settings', 'howto', 'credits'].forEach(n => this.hide(n));
+    this._sub = this._subParent = null;
+  },
+
+  // ------------------------------------------------------------------
+  // sub-screens (Settings, How to play, Credits)
+  // ------------------------------------------------------------------
+  _sub: null, _subParent: null,
+  openSub(name) {
+    const parent = ['title', 'pause'].find(n => this.els[n].classList.contains('show')) || null;
+    if (parent) this.hide(parent);
+    this._sub = name; this._subParent = parent;
+    if (name === 'settings') this.syncSettings();
+    this.gpResetFocus();
+    this.show(name);
+  },
+  closeSub() {
+    if (!this._sub) return false;
+    this.hide(this._sub);
+    if (this._subParent) this.show(this._subParent);
+    this._sub = this._subParent = null;
+    this._eraseArmed = false;
+    return true;
+  },
+  // Esc / controller B: back out of whatever sub-screen is open
+  back() {
+    if (this.closeSub()) { AudioSys.play('uiBack'); return true; }
+    const hg = document.getElementById('hangar');
+    if (hg.classList.contains('show')) { document.getElementById('btn-hangar-back').click(); return true; }
+    return false;
+  },
+
+  initSettings() {
+    const $ = id => document.getElementById(id);
+    document.querySelectorAll('#settings .seg[data-opt] .opt').forEach(el => {
+      el.onclick = () => {
+        OPTS[el.parentNode.dataset.opt] = parseFloat(el.dataset.v);
+        if (el.parentNode.dataset.opt === 'glow') App.glowChecked = true;   // the player chose: don't second-guess it
+        App.saveSettings();
+        AudioSys.play('ui');
+        this.syncSettings();
+      };
+    });
+    // fullscreen: the desktop app asks its window; browsers use the Fullscreen API
+    const fsOk = !!window.desktop || (!IS_TOUCH && !!document.documentElement.requestFullscreen);
+    document.querySelectorAll('#settings .fs-row').forEach(el => { el.style.display = fsOk ? '' : 'none'; });
+    document.querySelectorAll('#seg-fullscreen .opt').forEach(el => {
+      el.onclick = async () => {
+        const want = el.dataset.v === '1';
+        AudioSys.play('ui');
+        try {
+          if (window.desktop) await window.desktop.setFullscreen(want);
+          else if (want) await document.documentElement.requestFullscreen();
+          else if (document.fullscreenElement) await document.exitFullscreen();
+        } catch (e) { /* the browser said no; leave the display as it is */ }
+        this.syncSettings();
+      };
+    });
+    document.addEventListener('fullscreenchange', () => { if (this._sub === 'settings') this.syncSettings(); });
+  },
+  async syncSettings() {
+    document.querySelectorAll('#settings .seg[data-opt]').forEach(seg => {
+      const cur = OPTS[seg.dataset.opt];
+      seg.querySelectorAll('.opt').forEach(o => o.classList.toggle('on', parseFloat(o.dataset.v) === cur));
+    });
+    for (const [id, kind] of [['vol-master', 'master'], ['vol-music', 'music'], ['vol-sfx', 'sfx']])
+      document.getElementById(id).value = AudioSys.vols[kind] * 100;
+    // erasing progress is only offered from the title screen, never mid-run
+    const erase = document.getElementById('btn-erase');
+    erase.parentNode.style.display = this._subParent === 'title' ? '' : 'none';
+    erase.textContent = 'Erase all progress'; erase.classList.remove('armed');
+    this._eraseArmed = false;
+    let fs = false;
+    try { fs = window.desktop ? await window.desktop.isFullscreen() : !!document.fullscreenElement; } catch (e) {}
+    document.querySelectorAll('#seg-fullscreen .opt').forEach(o => o.classList.toggle('on', (o.dataset.v === '1') === fs));
+  },
+  _eraseArmed: false,
+  eraseClick() {
+    const btn = document.getElementById('btn-erase');
+    if (!this._eraseArmed) {
+      this._eraseArmed = true;
+      btn.textContent = 'Erase ships, upgrades and shards? Press again';
+      btn.classList.add('armed');
+      AudioSys.play('warn');
+      setTimeout(() => { if (this._eraseArmed) { this._eraseArmed = false; btn.textContent = 'Erase all progress'; btn.classList.remove('armed'); } }, 5000);
+      return;
+    }
+    App.eraseProgress();
+  },
 
   // ------------------------------------------------------------------
   // hangar (meta-progression)
@@ -134,10 +237,10 @@ const UI = {
   buildCharCards() {
     const row = this.els.charRow;
     row.innerHTML = '';
-    const selCls = ['sel-cyan', 'sel-violet', 'sel-gold'];
     CHARS.forEach(ch => {
       const card = document.createElement('div');
-      card.className = 'char-card ' + selCls[ch.id];
+      card.className = 'char-card';
+      card.style.setProperty('--ship', ch.color);
       const cv = document.createElement('canvas');
       cv.width = cv.height = 72;
       const cx = cv.getContext('2d');
@@ -147,10 +250,10 @@ const UI = {
       if (locked) card.classList.add('locked');
       const best = App.save.best[ch.id + '_' + (App.save.arena || 0)];
       const bestTxt = locked
-        ? `<span class="char-unlock">UNLOCK — ◆ ${ch.cost}</span>`
+        ? `<span class="char-unlock">Unlock for ◆ ${ch.cost}</span>`
         : best && best.time > 0
-          ? `best: ${U.fmtTime(best.time)} · ${best.kills} kills` + (best.won ? ' · ★ CLEARED' : '')
-          : 'no flights yet';
+          ? `Best ${U.fmtTime(best.time)}, ${best.kills.toLocaleString()} kills` + (best.won ? ' ★ cleared' : '')
+          : 'Not flown yet';
       card.insertAdjacentHTML('beforeend', `
         <div class="char-name" style="color:${ch.color}">${ch.name}</div>
         <div class="char-sub">${ch.sub}</div>
@@ -169,7 +272,7 @@ const UI = {
         if (this._p1Char === null) {
           this._p1Char = ch.id;
           card.classList.add('picked');
-          this.coopHint('PLAYER 2 — PICK YOUR SHIP');
+          this.coopHint('Player 2, pick your ship');
         } else {
           App.startCoop([this._p1Char, ch.id]);
         }
@@ -178,7 +281,7 @@ const UI = {
       row.appendChild(card);
     });
     this._p1Char = null;
-    this.coopHint(App.save.coopMode ? 'PLAYER 1 — PICK YOUR SHIP' : null);
+    this.coopHint(App.save.coopMode ? 'Player 1, pick your ship' : null);
     document.getElementById('title-shards').textContent = '◆ ' + (App.save.shards || 0);
     this.buildModeRow();
     this.buildArenaRow();
@@ -198,7 +301,7 @@ const UI = {
     [{ id: false, name: 'SOLO', sub: 'one pilot' },
      { id: true, name: 'CO-OP', sub: '2 players · one screen' }].forEach(m => {
       const card = document.createElement('div');
-      card.className = 'arena-card a0' + (!!App.save.coopMode === m.id ? ' picked' : '');
+      card.className = 'arena-card' + (!!App.save.coopMode === m.id ? ' picked' : '');
       card.innerHTML = `<div class="an">${m.name}</div><div class="as">${m.sub}</div>`;
       card.onclick = () => {
         AudioSys.play('ui');
@@ -215,7 +318,8 @@ const UI = {
     row.innerHTML = '';
     ARENAS.forEach(az => {
       const card = document.createElement('div');
-      card.className = 'arena-card a' + Math.min(az.id, 1) + ((App.save.arena || 0) === az.id ? ' picked' : '');
+      card.className = 'arena-card' + ((App.save.arena || 0) === az.id ? ' picked' : '');
+      card.style.setProperty('--pick', az.accent);
       card.innerHTML = `<div class="an">${az.name}</div><div class="as">${az.sub}</div>`;
       card.onclick = () => {
         AudioSys.play('ui');
@@ -246,7 +350,7 @@ const UI = {
   _gpIdx: 0,
   _gpCards() {
     if (G.state === 'levelup') return [...document.querySelectorAll('.up-card')];
-    if (G.state === 'title') return [...document.querySelectorAll('.char-card')];
+    if (G.state === 'title' && this.els.title.classList.contains('show')) return [...document.querySelectorAll('.char-card')];
     return [];
   },
   gpMove(delta) {
@@ -580,7 +684,7 @@ const UI = {
   redFlash() {
     const el = this.els.flashRed;
     el.style.transition = 'none';
-    el.style.opacity = 1;
+    el.style.opacity = OPTS.flashes ? 1 : 0.3;
     requestAnimationFrame(() => {
       el.style.transition = 'opacity .45s ease';
       el.style.opacity = 0;
@@ -683,19 +787,19 @@ const UI = {
       ctx.lineWidth = 1;
       ctx.strokeRect(hx - 2, hy - 2, hpW + 4, hpH + 4);
       ctx.fillStyle = '#eaf4ff';
-      ctx.font = 'bold 10px Segoe UI';
+      ctx.font = 'bold 10px ' + FONT;
       ctx.textAlign = 'center';
       ctx.fillText(p.down ? 'DOWN — ' + Math.ceil(p.downT) + 's' : Math.ceil(p.hp) + ' / ' + p.maxHp,
         hx + hpW / 2, hy + hpH / 2 + 0.5);
       ctx.textAlign = 'left';
       if (G.coop) {
         ctx.fillStyle = CHARS[p.charId].color;
-        ctx.font = 'bold 11px Segoe UI';
+        ctx.font = 'bold 11px ' + FONT;
         ctx.fillText('P' + (pi + 1), hx + hpW + 10, hy + hpH / 2);
       }
       if (p.armor > 0) {
         ctx.fillStyle = '#8aa0ff';
-        ctx.font = 'bold 11px Segoe UI';
+        ctx.font = 'bold 11px ' + FONT;
         ctx.fillText('⬡ ' + p.armor, hx + hpW + (G.coop ? 34 : 10), hy + hpH / 2);
       }
 
@@ -706,7 +810,7 @@ const UI = {
         ctx.drawImage(cv, ix, iy);
         ctx.globalAlpha = 1;
         ctx.fillStyle = wp.evolved ? '#ffd34e' : '#9fb2d8';
-        ctx.font = 'bold 9px Segoe UI';
+        ctx.font = 'bold 9px ' + FONT;
         ctx.textAlign = 'center';
         ctx.fillText(wp.evolved ? '★' : wp.lvl, ix + 12, iy + 31);
         ix += 30;
@@ -718,7 +822,7 @@ const UI = {
         ctx.drawImage(cv, ix, iy + 2);
         ctx.globalAlpha = 1;
         ctx.fillStyle = '#9fb2d8';
-        ctx.font = 'bold 9px Segoe UI';
+        ctx.font = 'bold 9px ' + FONT;
         ctx.textAlign = 'center';
         ctx.fillText(p.passives[id], ix + 10, iy + 31);
         ix += 26;
@@ -727,28 +831,28 @@ const UI = {
 
     // --- timer (top-center) ---
     ctx.textAlign = 'center';
-    ctx.font = 'bold 30px Segoe UI';
+    ctx.font = 'bold 30px ' + FONT;
     ctx.fillStyle = '#eaf4ff';
     ctx.shadowColor = '#4ef3ff'; ctx.shadowBlur = 10;
     ctx.fillText(U.fmtTime(G.time), w / 2, 34);
     ctx.shadowBlur = 0;
     if (G.mode === 'endless') {
-      ctx.font = 'bold 11px Segoe UI';
+      ctx.font = 'bold 11px ' + FONT;
       ctx.fillStyle = '#ffd34e';
       ctx.fillText('ENDLESS', w / 2, 56);
     }
 
     // --- kills + level (top-right) ---
     ctx.textAlign = 'right';
-    ctx.font = 'bold 16px Segoe UI';
+    ctx.font = 'bold 16px ' + FONT;
     ctx.fillStyle = '#ff8adf';
     const rx = w - 18 - (IS_TOUCH ? 56 : 0);   // leave room for the on-screen pause button
     ctx.fillText(G.kills.toLocaleString() + ' ✦', rx, 24);
     ctx.fillStyle = '#4ef3ff';
     ctx.fillText('LV ' + G.level, rx, 46);
-    if (G.heat) { ctx.fillStyle = '#ff5252'; ctx.font = 'bold 13px Segoe UI'; ctx.fillText('🔥 HEAT ' + G.heat, rx, 66); }
+    if (G.heat) { ctx.fillStyle = '#ff5252'; ctx.font = 'bold 13px ' + FONT; ctx.fillText('🔥 HEAT ' + G.heat, rx, 66); }
     if (G.healMult && G.healMult() < 0.99) {
-      ctx.fillStyle = '#b06bff'; ctx.font = 'bold 11px Segoe UI';
+      ctx.fillStyle = '#b06bff'; ctx.font = 'bold 11px ' + FONT;
       ctx.fillText('VOID ROT −' + Math.round((1 - G.healMult()) * 100) + '% healing', rx, G.heat ? 84 : 66);
     }
 
@@ -757,7 +861,7 @@ const UI = {
     if (b && !b.dead) {
       const bw = Math.min(430, w * 0.5), bx = w / 2 - bw / 2, by = 66;
       ctx.textAlign = 'center';
-      ctx.font = 'bold 13px Segoe UI';
+      ctx.font = 'bold 13px ' + FONT;
       ctx.fillStyle = b.def.color;
       ctx.shadowColor = b.def.color; ctx.shadowBlur = 8;
       ctx.fillText(b.def.name, w / 2, by - 2);
@@ -795,7 +899,7 @@ const UI = {
       ctx.beginPath(); ctx.moveTo(w / 2, 80); ctx.lineTo(w / 2, h - 70); ctx.stroke();
       ctx.setLineDash([]);
       ctx.globalAlpha = 0.35;
-      ctx.font = 'bold 12px Segoe UI'; ctx.textAlign = 'center';
+      ctx.font = 'bold 12px ' + FONT; ctx.textAlign = 'center';
       ctx.fillStyle = jcol(0); ctx.fillText('P1', w / 4, h - 58);
       ctx.fillStyle = jcol(1); ctx.fillText('P2', w * 3 / 4, h - 58);
       ctx.globalAlpha = 1;

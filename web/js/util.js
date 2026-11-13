@@ -4,6 +4,15 @@
 const TAU = Math.PI * 2;
 // true on phones/tablets (touch is the main input)
 const IS_TOUCH = !!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches);
+// canvas text uses the same bundled typeface as the menus
+const FONT = 'Oxanium, "Segoe UI", system-ui, sans-serif';
+// player options (saved with progress, edited on the Settings screen)
+const OPTS = {
+  glow: IS_TOUCH ? 0 : 1,     // bloom post-process; off by default on phones
+  shake: 1,                   // screen-shake strength 0..1
+  flashes: (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ? 0 : 1,
+  dmgNums: 1,
+};
 
 const U = {
   rand(a, b) { return a + Math.random() * (b - a); },

@@ -11,7 +11,8 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <title>VOIDBLOOM</title>
-<meta name="description" content="VOIDBLOOM — a neon survivors-like. Solo or co-op, 5 ships, 3 arenas, 11 evolving weapons.">
+<meta name="description" content="VOIDBLOOM — a neon survivors-like you play to the beat. Solo or co-op, 5 ships, 3 arenas, 11 evolving weapons.">
+<link rel="preload" href="fonts/oxanium.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="icon" href="favicon.svg">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -26,22 +27,22 @@
 <!-- TITLE -->
 <div class="overlay" id="title">
   <h1 class="logo">VOIDBLOOM</h1>
-  <div class="tagline">survive the swarm &nbsp;&middot;&nbsp; bloom the void</div>
+  <div class="tagline">Survive the swarm. Bloom the void.</div>
+  <div class="setup-row">
+    <div class="arena-row" id="mode-row"></div>
+    <div class="arena-row" id="arena-row"></div>
+  </div>
+  <div id="coop-hint" style="display:none"></div>
   <div class="char-row" id="char-row"></div>
-  <div id="coop-hint" class="tagline" style="margin:8px 0 0; display:none; letter-spacing:.18em"></div>
-  <div style="margin:10px 0 2px">
-    <span class="btn" id="btn-hangar" style="font-size:14px; padding:9px 22px">THE HANGAR &nbsp;<span id="title-shards" style="color:var(--violet)">◆ 0</span></span>
-    <span class="btn warn desk-app-only" id="btn-quit-title" style="font-size:14px; padding:9px 22px">QUIT</span>
+  <div class="title-nav">
+    <span class="btn nav" id="btn-hangar">Hangar<span id="title-shards">◆ 0</span></span>
+    <span class="btn nav" id="btn-howto">How to play</span>
+    <span class="btn nav" id="btn-settings">Settings</span>
+    <span class="btn nav" id="btn-credits">Credits</span>
+    <span class="btn nav warn desk-app-only" id="btn-quit-title">Quit</span>
   </div>
-  <div class="arena-row" id="mode-row"></div>
-  <div class="arena-row" id="arena-row" style="margin-top:6px"></div>
-  <div class="hint">
-    <span class="touch-only">Pick an arena, then tap a ship to launch.<br>Drag anywhere to fly &nbsp;&middot;&nbsp; tap a second finger <b>on the beat</b> to dash &nbsp;&middot;&nbsp; <b>❚❚</b> to pause<br></span>
-    <span class="desk-only"><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> or arrows to move
-    &nbsp;&middot;&nbsp; weapons fire on their own &nbsp;&middot;&nbsp;
-    <span class="kbd">Space</span> dash <b>on the beat</b> &nbsp;&middot;&nbsp; <span class="kbd">Esc</span> pause &nbsp;&middot;&nbsp; <span class="kbd">M</span> mute
-    <br></span>Survive 15 minutes. Kill what waits at the end.
-  </div>
+  <div class="hint">Pick a ship to launch. Survive 15 minutes, then kill what waits at the end.</div>
+  <div class="version" id="version-tag"></div>
 </div>
 
 <!-- LEVEL UP -->
@@ -78,13 +79,14 @@
     <div class="lvl-title" style="color:var(--cyan); text-shadow:0 0 18px rgba(78,243,255,.5)">PAUSED</div>
     <div id="pause-build" class="build-recap"></div>
     <div id="pause-stats" class="stat-grid"></div>
-    <div class="vol-row"><label>Master</label><input type="range" id="vol-master" min="0" max="100"></div>
-    <div class="vol-row"><label>Music</label><input type="range" id="vol-music" min="0" max="100"></div>
-    <div class="vol-row"><label>SFX</label><input type="range" id="vol-sfx" min="0" max="100"></div>
     <div style="margin-top:14px">
       <div class="btn big" id="btn-resume">RESUME</div>
-      <div class="btn warn" id="btn-abandon">ABANDON RUN</div>
-      <div class="btn warn desk-app-only" id="btn-quit">QUIT GAME</div>
+    </div>
+    <div>
+      <div class="btn small" id="btn-pause-settings">Settings</div>
+      <div class="btn small" id="btn-pause-howto">How to play</div>
+      <div class="btn small warn" id="btn-abandon">Abandon run</div>
+      <div class="btn small warn desk-app-only" id="btn-quit">Quit game</div>
     </div>
   </div>
 </div>
@@ -117,8 +119,72 @@
   </div>
 </div>
 
-<div class="footer-note">VOIDBLOOM — made by Claude</div>
+<!-- SETTINGS -->
+<div class="overlay" id="settings">
+  <div class="panel">
+    <div class="lvl-title" style="color:var(--cyan); text-shadow:0 0 18px rgba(78,243,255,.45)">SETTINGS</div>
+    <div class="set-grid">
+      <div class="k">Master volume</div><input type="range" id="vol-master" min="0" max="100" aria-label="Master volume">
+      <div class="k">Music</div><input type="range" id="vol-music" min="0" max="100" aria-label="Music volume">
+      <div class="k">Sound effects</div><input type="range" id="vol-sfx" min="0" max="100" aria-label="Sound effects volume">
+      <div class="k">Neon glow</div>
+      <div class="seg" data-opt="glow"><span class="opt" data-v="0">Off</span><span class="opt" data-v="1">On</span></div>
+      <div class="k">Screen shake</div>
+      <div class="seg" data-opt="shake"><span class="opt" data-v="0">Off</span><span class="opt" data-v="0.5">Low</span><span class="opt" data-v="1">Full</span></div>
+      <div class="k">Flashes</div>
+      <div class="seg" data-opt="flashes"><span class="opt" data-v="0">Reduced</span><span class="opt" data-v="1">Full</span></div>
+      <div class="k">Damage numbers</div>
+      <div class="seg" data-opt="dmgNums"><span class="opt" data-v="0">Off</span><span class="opt" data-v="1">On</span></div>
+      <div class="k fs-row">Display</div>
+      <div class="seg fs-row" id="seg-fullscreen"><span class="opt" data-v="0">Window</span><span class="opt" data-v="1">Fullscreen</span></div>
+    </div>
+    <div class="set-note">Glow adds a soft bloom around everything bright. Turn it off if the game runs slowly.</div>
+    <div><div class="btn big" id="btn-settings-back">BACK</div></div>
+    <div class="set-danger"><div class="btn small warn" id="btn-erase">Erase all progress</div></div>
+  </div>
+</div>
 
+<!-- HOW TO PLAY -->
+<div class="overlay" id="howto">
+  <div class="panel">
+    <div class="lvl-title" style="color:var(--cyan); text-shadow:0 0 18px rgba(78,243,255,.45)">HOW TO PLAY</div>
+    <div class="doc">
+      <section><h3>Fly</h3>
+      <p><span class="desk-only">Move with <b>WASD</b>, the arrow keys or a controller stick.</span><span class="touch-only">Drag anywhere on the screen to fly.</span> Your weapons fire on their own. Collect the crystals enemies drop to level up.</p></section>
+      <section><h3>Dash on the beat</h3>
+      <p><span class="desk-only">Press <b>Space</b> (or <b>A</b> on a controller)</span><span class="touch-only">Tap with a second finger</span> to dash. A ring closes in on your ship and lands on the beat of the music. Dash as it lands for a <b>Perfect</b>: you can't be hit, and you slash through everything in your path.</p></section>
+      <section><h3>Build your Groove</h3>
+      <p>Chain Perfects to climb from Groove ×2 to <b>Overdrive</b> for up to 40% more damage. Miss the beat, or stop dashing for two bars, and you drop a tier. Every bar, a shockwave pulses out from your ship.</p></section>
+      <section><h3>Level up</h3>
+      <p>Each level offers three upgrades. Max a weapon to evolve it. Once your build is full, <b>Void Pacts</b> offer unlimited power, and each one raises the <b>Heat</b>: more enemies, tougher and faster.</p></section>
+      <section><h3>Last the run</h3>
+      <p>Bosses arrive at 5:00, 10:00 and 15:00. From 8:00, <b>Void Rot</b> weakens healing. Every run earns void shards to spend in the Hangar on permanent upgrades and new ships.</p></section>
+      <section><h3>Co-op</h3>
+      <p><span class="desk-only">Player 2 flies with the arrow keys and dashes with <b>Enter</b>, or uses a second controller.</span><span class="touch-only">Player 1 uses the left half of the screen and player 2 the right half.</span> A downed pilot comes back on a timer, or straight away when you level up.</p></section>
+      <p class="desk-only"><span class="kbd">Esc</span> pause &nbsp; <span class="kbd">M</span> mute<span class="desk-app-only"> &nbsp; <span class="kbd">F11</span> fullscreen</span></p>
+    </div>
+    <div><div class="btn big" id="btn-howto-back">BACK</div></div>
+  </div>
+</div>
+
+<!-- CREDITS -->
+<div class="overlay" id="credits">
+  <div class="panel">
+    <div class="lvl-title" style="color:var(--magenta); text-shadow:0 0 18px rgba(255,78,205,.45)">VOIDBLOOM</div>
+    <div class="lvl-sub" id="credits-version"></div>
+    <div class="doc center">
+      <p id="credits-studio"></p>
+      <p>Code, art and music were made with Claude, Anthropic's AI model.<br>Every sprite is drawn in code and every sound is synthesized as you play.</p>
+      <small>Typeface: Oxanium by Severin Meyer, SIL Open Font License 1.1.<br>
+      <span class="desk-app-only" >Desktop app built with Electron, MIT License.<br></span>
+      Contains flashing lights. You can reduce them in Settings.</small>
+      <p style="margin-top:14px">Thank you for playing.</p>
+    </div>
+    <div><div class="btn big" id="btn-credits-back">BACK</div></div>
+  </div>
+</div>
+
+<script src="js/version.js"></script>
 <script src="js/util.js"></script>
 <script src="js/sprites.js"></script>
 <script src="js/audio.js"></script>
@@ -128,7 +194,8 @@
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 <script>
-  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  // offline play for the installed web app (not needed inside store-hosted frames)
+  if ('serviceWorker' in navigator && location.protocol === 'https:' && !/itch\.zone$|itch\.io$/.test(location.hostname)) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 </script>

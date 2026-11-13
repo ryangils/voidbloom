@@ -258,7 +258,7 @@ const BeatSys = {
     for (const p of g.players) top = Math.max(top, p.tier);
     const ph = Beat.phase();
     const pulse = Math.max(0, 1 - ph * 3.5);
-    if (pulse > 0) {
+    if (pulse > 0 && OPTS.flashes) {
       ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = BEAT.COLORS[top];
       ctx.globalAlpha = pulse * (0.02 + top * 0.012);
@@ -290,7 +290,7 @@ const BeatSys = {
         ctx.fillRect(x + bw + 10 + k * 9, y - 1, 6, bh + 2);
       }
       ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-      ctx.font = 'bold 11px Segoe UI';
+      ctx.font = 'bold 11px ' + FONT;
       ctx.fillStyle = col;
       ctx.fillText(p.tier ? BEAT.NAMES[p.tier] : 'GROOVE', cx, y - 6);
     });

@@ -31,6 +31,7 @@ const App = {
     if (!this.save.achieved) this.save.achieved = [];
     if (!this.save.stats) this.save.stats = { runs: 0, kills: 0, wins: 0, shardsEarned: 0, bestLevel: 0 };
     if (this.save.vols) Object.assign(AudioSys.vols, this.save.vols);
+    if (this.save.opts) for (const k in OPTS) if (typeof this.save.opts[k] === 'number') OPTS[k] = this.save.opts[k];
   },
 
   shipUnlocked(ch) { return !ch.cost || !!this.save.ships[ch.id]; },
@@ -71,7 +72,14 @@ const App = {
 
   saveSettings() {
     this.save.vols = Object.assign({}, AudioSys.vols);
+    this.save.opts = Object.assign({}, OPTS);
     this.persist();
+  },
+
+  // wipe everything and start over (Settings → Erase all progress)
+  eraseProgress() {
+    try { localStorage.removeItem('voidbloom_save'); } catch (e) {}
+    location.reload();
   },
 
   recordRun(won) {
@@ -178,6 +186,7 @@ const App = {
   },
   resume() {
     if (G.state !== 'pause') return;
+    UI.closeSub();
     UI.hide('pause');
     G.state = 'run';
   },
@@ -186,7 +195,8 @@ const App = {
 // ---------------------------------------------------------------------------
 // input
 // ---------------------------------------------------------------------------
-if (/Electron/i.test(navigator.userAgent)) document.body.classList.add('is-desktop-app');
+// the desktop app exposes window.desktop (see electron/preload.js)
+if (window.desktop || /Electron/i.test(navigator.userAgent)) document.body.classList.add('is-desktop-app');
 
 const Input = {
   keys: new Set(),
@@ -265,6 +275,7 @@ const Input = {
         if (edge(0)) UI.gpConfirm();
       }
       if (G.state === 'run' && (edge(0) || edge(5) || edge(7))) BeatSys.requestDash(G, G.coop ? pi : 0);   // A / RB / RT
+      if (edge(1)) UI.back();   // B
       if (edge(9)) {           // Start
         if (G.state === 'run') App.pause();
         else if (G.state === 'pause') App.resume();
@@ -292,7 +303,11 @@ const Input = {
         if (k === ' ') BeatSys.requestDash(G, 0);
         else if (G.coop && (e.code === 'Enter' || e.code === 'ShiftRight' || e.code === 'Numpad0')) BeatSys.requestDash(G, 1);
       }
-      if (k === 'escape' || k === 'p') {
+      if (k === 'escape' && UI.back()) {
+        // closed Settings / How to play / Credits / Hangar
+      } else if (UI._sub) {
+        // a sub-screen is open: gameplay keys do nothing
+      } else if (k === 'escape' || k === 'p') {
         if (G.state === 'run') App.pause();
         else if (G.state === 'pause') App.resume();
       } else if (k === 'm') {
@@ -392,6 +407,43 @@ function resize() {
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 250));
 
+// ---------------------------------------------------------------------------
+// neon glow: a cheap bloom. The frame is shrunk in steps (which blurs it),
+// darkened so only bright neon survives, then added back over the picture.
+// ---------------------------------------------------------------------------
+const Glow = {
+  levels: [],
+  buf(i, w, h) {
+    let b = this.levels[i];
+    if (!b) { const cv = document.createElement('canvas'); b = this.levels[i] = { cv, g: cv.getContext('2d') }; }
+    if (b.cv.width !== w || b.cv.height !== h) { b.cv.width = w; b.cv.height = h; }
+    return b;
+  },
+  apply(ctx, src) {
+    if (!OPTS.glow || src.width < 64) return;
+    let prev = src, w = src.width, h = src.height;
+    for (let i = 0; i < 3; i++) {                     // 1/2, 1/4, 1/8
+      w = Math.max(1, w >> 1); h = Math.max(1, h >> 1);
+      const b = this.buf(i, w, h);
+      b.g.globalCompositeOperation = 'copy';
+      b.g.drawImage(prev, 0, 0, w, h);
+      prev = b.cv;
+    }
+    for (const i of [1, 2]) {                         // crush the darks on the two glow layers
+      const b = this.levels[i];
+      b.g.globalCompositeOperation = 'multiply';
+      b.g.drawImage(b.cv, 0, 0);
+    }
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.imageSmoothingEnabled = true;
+    ctx.globalAlpha = 0.5; ctx.drawImage(this.levels[1].cv, 0, 0, src.width, src.height);
+    ctx.globalAlpha = 0.6; ctx.drawImage(this.levels[2].cv, 0, 0, src.width, src.height);
+    ctx.restore();
+  },
+};
+
 let lastT = performance.now(), acc = 0;
 const STEP = 1 / 60;
 
@@ -408,15 +460,34 @@ function frame(now) {
   }
   if (n === 5) acc = 0;
 
+  // if the game is struggling with glow on, turn glow off once and say so
+  if (OPTS.glow && !App.glowChecked && G.state === 'run') {
+    App.slowT = dt > 0.026 ? (App.slowT || 0) + dt : Math.max(0, (App.slowT || 0) - dt * 2);
+    if (App.slowT > 4) {
+      App.glowChecked = true;
+      OPTS.glow = 0; App.saveSettings();
+      UI.tip('Neon glow turned off to keep the game smooth.<br>You can turn it back on in Settings.', 6);
+    }
+  }
+
   ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
   G.render(ctx2d, viewW, viewH);
-  UI.renderHUD(ctx2d, viewW, viewH);
+  Glow.apply(ctx2d, canvas);          // before the HUD, so text stays crisp
+  // the HUD grows with the screen so it reads the same on a laptop and a big monitor
+  const hs = IS_TOUCH ? 1 : U.clamp(Math.min(viewW / 1280, viewH / 720), 1, 2);
+  ctx2d.setTransform(dpr * hs, 0, 0, dpr * hs, 0, 0);
+  UI.renderHUD(ctx2d, viewW / hs, viewH / hs);
   requestAnimationFrame(frame);
 }
 
 // ---------------------------------------------------------------------------
 // boot
 // ---------------------------------------------------------------------------
+// make sure the bundled typeface is ready for canvas text (menus load it through CSS)
+if (document.fonts && document.fonts.load) {
+  document.fonts.load('700 16px Oxanium').catch(() => {});
+  document.fonts.load('400 16px Oxanium').catch(() => {});
+}
 Sprites.init();
 initDataSprites();
 App.loadSave();
@@ -435,6 +506,7 @@ window.VB = {
   lvl(n = 1) { G.banked += n; },                     // bank level-ups
   god() { for (const pl of G.players) { pl.maxHp = 99999; pl.hp = 99999; } },
   speed(x) { App.debugSpeed = x; },                  // fast-forward sim
+  keepGlow() { App.glowChecked = true; },            // never auto-disable glow (for captures)
   killall() { for (const e of G.enemies.slice()) G.killEnemy(e); },
   boss(id) { G.spawnBoss(id || 'warden'); },
   xp(n) { G.gainXp(n); },
