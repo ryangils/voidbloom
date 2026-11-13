@@ -433,3 +433,8 @@ body.is-desktop-app .desk-app-only{ display:inline-block !important; }
   .overlay{ zoom:1.7; }
   #announce, #tip{ zoom:1.8; }
 }
+
+/* test mode banner (?test) */
+.test-badge{ margin-top:10px; padding:6px 12px; font-size:12.5px; color:#ffd9a8;
+  border:1px dashed rgba(255,157,78,.6); background:rgba(40,20,6,.6); }
+.test-badge a{ color:var(--cyan); }

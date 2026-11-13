@@ -53,6 +53,7 @@ const UI = {
     $('btn-erase').onclick = () => this.eraseClick();
     this.initSettings();
     $('version-tag').textContent = 'v' + GAME_VERSION;
+    if (TEST_MODE) $('test-badge').style.display = '';
     $('credits-version').textContent = 'version ' + GAME_VERSION;
     const studio = $('credits-studio');
     if (GAME_STUDIO) studio.innerHTML = 'A game by <b></b>', studio.querySelector('b').textContent = GAME_STUDIO;

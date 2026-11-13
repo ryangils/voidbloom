@@ -187,7 +187,7 @@ const Progress = {
   cleared(i) { return !!this.stars(i)[0]; },
   // why a sector is locked, or null if you can play it
   lockReason(i) {
-    if (i === 0) return null;
+    if (i === 0 || this.s.testAll) return null;
     if (!this.cleared(i - 1)) return 'Clear sector ' + i + ' first';
     const gate = SECTORS[i].gate || 0;
     if (this.totalStars() < gate) return 'Needs ★ ' + gate;
@@ -285,6 +285,19 @@ const Progress = {
       if (rw && (rw.paint || rw.ship != null || rw.perk)) return { rank: r, label: rewardLabel(rw) };
     }
     return { rank: R.r + 1, label: rewardLabel(rankReward(R.r + 1)) };
+  },
+
+  // test mode: top rank, every rank reward, every ship and sector, plenty of shards
+  seedTestSave() {
+    const s = this.s;
+    s.testSeeded = true;
+    s.testAll = true;
+    const top = 41;
+    for (let r = 2; r <= top; r++) this.grant(rankReward(r));
+    s.rank = { r: top, xp: 0, claimed: top };
+    for (const ch of CHARS) if (ch.cost) s.ships[ch.id] = true;
+    s.shards = 99999;
+    this.applyPaints();
   },
 
   // ---------------- paints ----------------

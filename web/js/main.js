@@ -1,6 +1,11 @@
 // VOIDBLOOM — main.js: boot, input, game loop, meta state, saves.
 'use strict';
 
+// Test mode: open the game with ?test on the link. It plays from a separate save
+// that starts at top rank with everything unlocked; the normal save is untouched.
+const TEST_MODE = /[?&]test(=|&|$)/.test(location.search);
+const SAVE_KEY = TEST_MODE ? 'voidbloom_save_test' : 'voidbloom_save';
+
 const App = {
   save: {
     version: 4, best: {}, vols: null, seenTip: false, arena: 0, coopMode: false,
@@ -11,7 +16,7 @@ const App = {
 
   loadSave() {
     try {
-      const raw = localStorage.getItem('voidbloom_save');
+      const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
         const s = JSON.parse(raw);
         if (s && s.version === 4) this.save = Object.assign(this.save, s);
@@ -34,6 +39,7 @@ const App = {
     if (this.save.opts) for (const k in OPTS) if (typeof this.save.opts[k] === 'number') OPTS[k] = this.save.opts[k];
     Quality.apply();
     Progress.init();
+    if (TEST_MODE && !this.save.testSeeded) { Progress.seedTestSave(); this.persist(); }
   },
 
   shipUnlocked(ch) { return !ch.cost || !!this.save.ships[ch.id]; },
@@ -69,7 +75,7 @@ const App = {
   },
 
   persist() {
-    try { localStorage.setItem('voidbloom_save', JSON.stringify(this.save)); } catch (e) {}
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.save)); } catch (e) {}
   },
 
   saveSettings() {
@@ -80,7 +86,7 @@ const App = {
 
   // wipe everything and start over (Settings → Erase all progress)
   eraseProgress() {
-    try { localStorage.removeItem('voidbloom_save'); } catch (e) {}
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
     location.reload();
   },
 
